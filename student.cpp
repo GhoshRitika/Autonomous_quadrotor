@@ -184,7 +184,7 @@ void read_imu()
     vw=vw ^ 0xffff;
     vw=-vw-1;
   }          
- imu_data[1]=-(y_gyro_calibration + vw*(-500.0-500.0)/(-32768.0-32767.0));////todo: convert vw from raw values to degrees/second
+ imu_data[1]=y_gyro_calibration + vw*(-500.0-500.0)/(-32768.0-32767.0);////todo: convert vw from raw values to degrees/second
   
   address=71;////todo: set addres value for gyro z value;
   vh=wiringPiI2CReadReg8(imu,address);
