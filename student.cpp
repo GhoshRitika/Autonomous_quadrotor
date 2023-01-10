@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <wiringPi.h>
 #include <wiringPiI2C.h>
 #include <time.h>
@@ -82,6 +83,7 @@ int main (int argc, char *argv[])
 
       // printf("\n Gyro(xyz) = %10.5f %10.5f %10.5f     Accel(xyz) = %10.5f %10.5f %10.5f", pitch_angle, roll_angle, yaw, imu_data[3], imu_data[4], imu_data[5]);
       printf("\n Gyro(xyz) = %10.5f %10.5f %10.5f     Pitch = %10.5f Roll = %10.5f", imu_data[0], imu_data[1], imu_data[2], pitch_angle, roll_angle);
+      delay(100); // Print every 1 second
     }
       
     
@@ -91,7 +93,7 @@ int main (int argc, char *argv[])
 
 void calibrate_imu()
 {
-
+// Average 1000 values to eliminate drift
 for (int i=0; i<1000; i++){
 
   read_imu();
@@ -104,8 +106,7 @@ for (int i=0; i<1000; i++){
   accel_z_sum += imu_data[5];
 }
 
-printf("\n roll_sum = %f", roll_sum);
-
+// Add negetive to eliminate drift
 x_gyro_calibration = -x_gyro_sum/1000.0;
 y_gyro_calibration = -y_gyro_sum/1000.0;
 z_gyro_calibration = -z_gyro_sum/1000.0;
@@ -172,7 +173,7 @@ void read_imu()
     vw=vw ^ 0xffff;
     vw=-vw-1;
   }          
-  imu_data[0]=x_gyro_calibration + vw*(-500.0-500.0)/(-32768.0-32767.0);////todo: convert vw from raw values to degrees/second
+  imu_data[0]=-(x_gyro_calibration + vw*(-500.0-500.0)/(-32768.0-32767.0));////todo: convert vw from raw values to degrees/second
   
   address=69;//todo: set addres value for gyro y value;
   vh=wiringPiI2CReadReg8(imu,address);
@@ -183,7 +184,7 @@ void read_imu()
     vw=vw ^ 0xffff;
     vw=-vw-1;
   }          
- imu_data[1]=y_gyro_calibration + vw*(-500.0-500.0)/(-32768.0-32767.0);////todo: convert vw from raw values to degrees/second
+ imu_data[1]=-(y_gyro_calibration + vw*(-500.0-500.0)/(-32768.0-32767.0));////todo: convert vw from raw values to degrees/second
   
   address=71;////todo: set addres value for gyro z value;
   vh=wiringPiI2CReadReg8(imu,address);
@@ -199,7 +200,7 @@ void read_imu()
   // Calculate Roll, Pitch and Yaw
   pitch_angle = (atan2(imu_data[4],-imu_data[5])*180/pi) + pitch_calibration;
   roll_angle = (atan2(imu_data[3],-imu_data[5])*180/pi) + roll_calibration;
-  // yaw = ??
+  // yaw = todo
 
  
 }
