@@ -10,6 +10,7 @@
 #include <sys/shm.h>
 #include <sys/stat.h>
 #include <curses.h>
+#include <stdlib.h>
 
 //gcc -o week1 week_1.cpp -lwiringPi -lncurses -lm
 
@@ -58,7 +59,7 @@ struct timespec te;
 float yaw=0;
 float pitch_angle=0;
 float roll_angle=0;
-
+//intitialising variables used to average data for calibration
 float pi = 3.14159;
 float x_gyro_sum;
 float y_gyro_sum;
@@ -73,17 +74,15 @@ int main (int argc, char *argv[])
 
     setup_imu();
     calibrate_imu();
-    
- 
-    
+
+
     while(1)
     {
       read_imu();
       update_filter();
-
-      // printf("\n Gyro(xyz) = %10.5f %10.5f %10.5f     Accel(xyz) = %10.5f %10.5f %10.5f", pitch_angle, roll_angle, yaw, imu_data[3], imu_data[4], imu_data[5]);
+      //Introducing 100millisec delay to allow the displayed data to be more readable
+      delay(100);
       printf("\n Gyro(xyz) = %10.5f %10.5f %10.5f     Pitch = %10.5f Roll = %10.5f", imu_data[0], imu_data[1], imu_data[2], pitch_angle, roll_angle);
-      delay(100); // Print every 1 second
     }
       
     
@@ -93,7 +92,7 @@ int main (int argc, char *argv[])
 
 void calibrate_imu()
 {
-// Average 1000 values to eliminate drift
+//loop that runs to sum data over a 1000 iterations
 for (int i=0; i<1000; i++){
 
   read_imu();
@@ -107,6 +106,7 @@ for (int i=0; i<1000; i++){
 }
 
 // Add negetive to eliminate drift
+//Averaging data using the summation variables
 x_gyro_calibration = -x_gyro_sum/1000.0;
 y_gyro_calibration = -y_gyro_sum/1000.0;
 z_gyro_calibration = -z_gyro_sum/1000.0;
@@ -114,7 +114,7 @@ roll_calibration = -roll_sum/1000.0;
 pitch_calibration = -pitch_sum/1000.0;
 accel_z_calibration = -accel_z_sum/1000.0;
 
-printf("calibration complete, %f %f %f %f %f %f\n\r",x_gyro_calibration,y_gyro_calibration,z_gyro_calibration,roll_calibration,pitch_calibration,accel_z_calibration);
+printf("\n calibration complete, %f %f %f %f %f %f\n\r",x_gyro_calibration,y_gyro_calibration,z_gyro_calibration,roll_calibration,pitch_calibration,accel_z_calibration);
 
 
 }
@@ -173,7 +173,7 @@ void read_imu()
     vw=vw ^ 0xffff;
     vw=-vw-1;
   }          
-  imu_data[0]=-(x_gyro_calibration + vw*(-500.0-500.0)/(-32768.0-32767.0));////todo: convert vw from raw values to degrees/second
+  imu_data[0]= -(x_gyro_calibration + vw*(-500.0-500.0)/(-32768.0-32767.0));////todo: convert vw from raw values to degrees/second 
   
   address=69;//todo: set addres value for gyro y value;
   vh=wiringPiI2CReadReg8(imu,address);
@@ -184,7 +184,7 @@ void read_imu()
     vw=vw ^ 0xffff;
     vw=-vw-1;
   }          
- imu_data[1]=y_gyro_calibration + vw*(-500.0-500.0)/(-32768.0-32767.0);////todo: convert vw from raw values to degrees/second
+ imu_data[1]=y_gyro_calibration + vw*(-500.0-500.0)/(-32768.0-32767.0);////todo: convert vw from raw values to degrees/second     
   
   address=71;////todo: set addres value for gyro z value;
   vh=wiringPiI2CReadReg8(imu,address);
