@@ -83,6 +83,7 @@ int main (int argc, char *argv[])
       //Introducing 100millisec delay to allow the displayed data to be more readable
       delay(100);
       printf("\n Gyro(xyz) = %10.5f %10.5f %10.5f     Pitch = %10.5f Roll = %10.5f", imu_data[0], imu_data[1], imu_data[2], pitch_angle, roll_angle);
+
     }
       
     
