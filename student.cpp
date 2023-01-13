@@ -23,7 +23,7 @@
 #define USER_CTRL        0x6A  // Bit 7 enable DMP, bit 3 reset DMP
 #define PWR_MGMT_1       0x6B  // Device defaults to the SLEEP mode
 #define PWR_MGMT_2       0x6C
-
+#define A                0.02  //Complemetary filter ratio
 
 enum Ascale {
   AFS_2G = 0,
@@ -43,6 +43,8 @@ int setup_imu();
 void calibrate_imu();      
 void read_imu();    
 void update_filter();
+void setup_keyboard();
+void trap(int signal);
 
 //global variables
 int imu;
@@ -56,18 +58,26 @@ float imu_data[6]; //gyro xyz, accel xyz
 long time_curr;
 long time_prev;
 struct timespec te;
-float yaw=0;
-float pitch_angle=0;
-float roll_angle=0;
+float yaw=0.0;
+float pitch_angle=0.0;
+float roll_angle=0.0;
 //intitialising variables used to average data for calibration
 float pi = 3.14159;
-float x_gyro_sum;
-float y_gyro_sum;
-float z_gyro_sum;
-float roll_sum;
-float pitch_sum;
-float accel_z_sum;
+float filtered_pitch = 0.0;
+float filtered_roll = 0.0;
+float roll_gyro_delta=0.0;
+float pitch_gyro_delta = 0.0;
+FILE *file_p;
 
+//week2 addition
+struct Keyboard {
+  char key_press;
+  int heartbeat;
+  int version;
+};
+
+Keyboard* shared_memory;
+int run_program=1;
  
 int main (int argc, char *argv[])
 {
@@ -75,17 +85,31 @@ int main (int argc, char *argv[])
     setup_imu();
     calibrate_imu();
 
+    //in main before while(1) loop add...
+    setup_keyboard();
+    signal(SIGINT, &trap);
+    //to refresh values from shared memory first
+    Keyboard keyboard=*shared_memory;
+    //be sure to update the while(1) in main to use run_program instead
+    file_p = fopen("common_filter.csv", "w+");
+    float temp = 0.0;
 
-    while(1)
-    {
+    while(run_program==1)
+    { 
       read_imu();
       update_filter();
       //Introducing 100millisec delay to allow the displayed data to be more readable
-      delay(100);
-      printf("\n Gyro(xyz) = %10.5f %10.5f %10.5f     Pitch = %10.5f Roll = %10.5f", imu_data[0], imu_data[1], imu_data[2], pitch_angle, roll_angle);
+      // delay(100);
+      // printf("\n Gyro(xyz) = %10.5f %10.5f %10.5f     Pitch = %10.5f Roll = %10.5f", imu_data[0], imu_data[1], imu_data[2], pitch_angle, roll_angle);
+      
+      // printf("\n Pitch: %10.5f, Filtered pitch: %10.5f, pitch_gyro_delta: %10.5f , gyro x: %10.5f ", pitch_angle, filtered_pitch, pitch_gyro_delta, imu_data[0]);
+      // printf("\n Roll: %10.5f, Filtered roll: %10.5f, roll_gyro_delta: %10.5f , gyro y: %10.5f ", roll_angle, filtered_roll, roll_gyro_delta, imu_data[1]);
+      temp += pitch_gyro_delta;
+      fprintf(file_p, "%f, %f, %f\n", filtered_pitch, pitch_gyro_delta, pitch_angle);
 
     }
-      
+    fclose(file_p);
+    return 0;
     
    
   
@@ -93,7 +117,15 @@ int main (int argc, char *argv[])
 
 void calibrate_imu()
 {
+  //maybe initialize sun variables locally
 //loop that runs to sum data over a 1000 iterations
+float x_gyro_sum =0.0;
+float y_gyro_sum=0.0;
+float z_gyro_sum=0.0;
+float roll_sum=0.0;
+float pitch_sum=0.0;
+float accel_z_sum=0.0;
+
 for (int i=0; i<1000; i++){
 
   read_imu();
@@ -225,6 +257,11 @@ void update_filter()
   time_prev=time_curr;
   
   //comp. filter for roll, pitch here: 
+  roll_gyro_delta = imu_data[1]*imu_diff; //Integrated gyro roll angle
+  filtered_roll = roll_angle*A + (1-A)*(roll_gyro_delta+filtered_roll);
+
+  pitch_gyro_delta = imu_data[0]*imu_diff; //Integrated gyro pitch angle
+  filtered_pitch = pitch_angle*A + (1-A)*(pitch_gyro_delta+filtered_pitch);
 }
 
 
@@ -273,3 +310,31 @@ int setup_imu()
 }
 
 
+//function to add
+void setup_keyboard()
+{
+  int segment_id;
+  struct shmid_ds shmbuffer;
+  int segment_size;
+  const int shared_segment_size = 0x6400;
+  int smhkey=33222;
+
+  /* Allocate a shared memory segment.  */
+  segment_id = shmget (smhkey, shared_segment_size,IPC_CREAT | 0666);
+  /* Attach the shared memory segment.  */
+  shared_memory = (Keyboard*) shmat (segment_id, 0, 0);
+  printf ("shared memory attached at address %p\n", shared_memory);
+  /* Determine the segment's size. */
+  shmctl (segment_id, IPC_STAT, &shmbuffer);
+  segment_size  =               shmbuffer.shm_segsz;
+  printf ("segment size: %d\n", segment_size);
+  /* Write a string to the shared memory segment.  */
+  //sprintf (shared_memory, "test!!!!.");
+}
+
+//when cntrl+c pressed, kill motors
+void trap(int signal)
+{
+  printf("ending program\n\r");
+  run_program=0;
+}
