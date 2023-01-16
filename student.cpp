@@ -85,14 +85,17 @@ int main (int argc, char *argv[])
     setup_imu();
     calibrate_imu();
 
+
     //in main before while(1) loop add...
     setup_keyboard();
     signal(SIGINT, &trap);
     //to refresh values from shared memory first
     Keyboard keyboard=*shared_memory;
-    //be sure to update the while(1) in main to use run_program instead
-    file_p = fopen("common_filter.csv", "w+");
-    float temp = 0.0;
+
+    // Save values to CSV
+    // file_p = fopen("common_filter.csv", "w+");
+    // float temp_pitch = 0.0;
+    // float temp_roll = 0.0;
 
     while(run_program==1)
     { 
@@ -104,15 +107,19 @@ int main (int argc, char *argv[])
       
       // printf("\n Pitch: %10.5f, Filtered pitch: %10.5f, pitch_gyro_delta: %10.5f , gyro x: %10.5f ", pitch_angle, filtered_pitch, pitch_gyro_delta, imu_data[0]);
       // printf("\n Roll: %10.5f, Filtered roll: %10.5f, roll_gyro_delta: %10.5f , gyro y: %10.5f ", roll_angle, filtered_roll, roll_gyro_delta, imu_data[1]);
-      temp += pitch_gyro_delta;
-      fprintf(file_p, "%f, %f, %f\n", filtered_pitch, pitch_gyro_delta, pitch_angle);
+      
+      // Save values to CSV
+      // temp_pitch += pitch_gyro_delta;
+      // temp_roll += roll_gyro_delta;
+      // fprintf(file_p, "%f, %f, %f\n", temp_pitch, pitch_angle, filtered_pitch);
+      // fprintf(file_p, "%f, %f, %f\n", temp_roll, roll_angle, filtered_roll);
 
     }
-    fclose(file_p);
+
+    // Save values to CSV
+    // fclose(file_p);
+
     return 0;
-    
-   
-  
 }
 
 void calibrate_imu()
