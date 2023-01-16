@@ -45,6 +45,7 @@ void read_imu();
 void update_filter();
 void setup_keyboard();
 void trap(int signal);
+void safety_check();
 
 //global variables
 int imu;
@@ -85,10 +86,10 @@ int main (int argc, char *argv[])
     setup_imu();
     calibrate_imu();
 
-
     //in main before while(1) loop add...
     setup_keyboard();
     signal(SIGINT, &trap);
+
     //to refresh values from shared memory first
     Keyboard keyboard=*shared_memory;
 
@@ -113,6 +114,12 @@ int main (int argc, char *argv[])
       // temp_roll += roll_gyro_delta;
       // fprintf(file_p, "%f, %f, %f\n", temp_pitch, pitch_angle, filtered_pitch);
       // fprintf(file_p, "%f, %f, %f\n", temp_roll, roll_angle, filtered_roll);
+
+      //to refresh values from shared memory first
+      Keyboard keyboard=*shared_memory;
+
+      printf("key_press: %c  heartbeat: %d  version: %d", keyboard.key_press, keyboard.heartbeat, keyboard.version);
+      safety_check();
 
     }
 
@@ -336,7 +343,7 @@ void setup_keyboard()
   segment_size  =               shmbuffer.shm_segsz;
   printf ("segment size: %d\n", segment_size);
   /* Write a string to the shared memory segment.  */
-  //sprintf (shared_memory, "test!!!!.");
+  // sprintf(shared_memory, "test!!!!.");
 }
 
 //when cntrl+c pressed, kill motors
@@ -344,4 +351,9 @@ void trap(int signal)
 {
   printf("ending program\n\r");
   run_program=0;
+}
+
+void safety_check()
+{
+  printf("\n");
 }
