@@ -24,6 +24,9 @@
 #define PWR_MGMT_1       0x6B  // Device defaults to the SLEEP mode
 #define PWR_MGMT_2       0x6C
 #define A                0.02  //Complemetary filter ratio
+#define MAX_GYRO_RATE    300   // deg/s
+#define MAX_ROLL_ANGLE   45.0  // deg
+#define MAX_PITCH_ANGLE  45.0  // deg
 
 enum Ascale {
   AFS_2G = 0,
@@ -38,6 +41,13 @@ enum Gscale {
   GFS_1000DPS,
   GFS_2000DPS
 };
+
+//week2 addition
+struct Keyboard {
+  char key_press;
+  int heartbeat;
+  int version;
+};
  
 int setup_imu();
 void calibrate_imu();      
@@ -45,7 +55,7 @@ void read_imu();
 void update_filter();
 void setup_keyboard();
 void trap(int signal);
-void safety_check();
+void safety_check(Keyboard keyboard);
 
 //global variables
 int imu;
@@ -55,7 +65,7 @@ float z_gyro_calibration=0;
 float roll_calibration=0;
 float pitch_calibration=0;
 float accel_z_calibration=0;
-float imu_data[6]; //gyro xyz, accel xyz
+float imu_data[6]; //gabs(filtered_pitch)>MAX_Pitch_ANGLEyro xyz, accel xyz
 long time_curr;
 long time_prev;
 struct timespec te;
@@ -69,13 +79,6 @@ float filtered_roll = 0.0;
 float roll_gyro_delta=0.0;
 float pitch_gyro_delta = 0.0;
 FILE *file_p;
-
-//week2 addition
-struct Keyboard {
-  char key_press;
-  int heartbeat;
-  int version;
-};
 
 Keyboard* shared_memory;
 int run_program=1;
@@ -109,6 +112,9 @@ int main (int argc, char *argv[])
       // printf("\n Pitch: %10.5f, Filtered pitch: %10.5f, pitch_gyro_delta: %10.5f , gyro x: %10.5f ", pitch_angle, filtered_pitch, pitch_gyro_delta, imu_data[0]);
       // printf("\n Roll: %10.5f, Filtered roll: %10.5f, roll_gyro_delta: %10.5f , gyro y: %10.5f ", roll_angle, filtered_roll, roll_gyro_delta, imu_data[1]);
       
+
+      printf(" Filtered pitch: %10.5f, Filtered roll: %10.5f\n", filtered_pitch, filtered_roll);
+      
       // Save values to CSV
       // temp_pitch += pitch_gyro_delta;
       // temp_roll += roll_gyro_delta;
@@ -118,8 +124,8 @@ int main (int argc, char *argv[])
       //to refresh values from shared memory first
       Keyboard keyboard=*shared_memory;
 
-      printf("key_press: %c  heartbeat: %d  version: %d", keyboard.key_press, keyboard.heartbeat, keyboard.version);
-      safety_check();
+      // printf("key_press: %d  heartbeat: %d  version: %d", keyboard.key_press, keyboard.heartbeat, keyboard.version);
+      safety_check(keyboard);
 
     }
 
@@ -278,7 +284,6 @@ void update_filter()
   filtered_pitch = pitch_angle*A + (1-A)*(pitch_gyro_delta+filtered_pitch);
 }
 
-
 int setup_imu()
 {
   wiringPiSetup ();
@@ -353,7 +358,25 @@ void trap(int signal)
   run_program=0;
 }
 
-void safety_check()
+void safety_check(Keyboard keyboard)
 {
+  if (keyboard.key_press == 32)
+  {
+    run_program=0;
+  }
+  else if (abs(filtered_pitch)>MAX_PITCH_ANGLE || abs(filtered_roll)>MAX_ROLL_ANGLE)
+  {
+    run_program=0;
+  }
+
+  else if (abs(imu_data[0])>MAX_GYRO_RATE || abs(imu_data[1])>MAX_GYRO_RATE || abs(imu_data[2])>MAX_GYRO_RATE)
+  {
+    run_program=0;
+  }
+
+  // else if (keyboard.key_press == 3)
+  // {
+  //   run_program=0;
+  // }
   printf("\n");
 }
