@@ -72,7 +72,6 @@ struct timespec te;
 struct timespec t_heartbeat;
 long time_curr_heartbeat;
 long time_prev_heartbeat = 0.0;
-double passed_time = 0.0; // TODO DELETE
 int hearbeat_prev = 0;
 float yaw=0.0;
 float pitch_angle=0.0;
@@ -129,7 +128,7 @@ int main (int argc, char *argv[])
       //to refresh values from shared memory first
       Keyboard keyboard=*shared_memory;
 
-      printf("key_press: %d  heartbeat: %d  version: %d  Tcurr: %d  Tprev: %d  Tpassed %10.5lf", keyboard.key_press, keyboard.heartbeat, keyboard.version, time_curr_heartbeat, time_prev_heartbeat, passed_time);
+      printf("key_press: %d  heartbeat: %d  version: %d\n", keyboard.key_press, keyboard.heartbeat, keyboard.version);
       safety_check(keyboard);
 
     }
@@ -358,7 +357,7 @@ void setup_keyboard()
 //when cntrl+c pressed, kill motors
 void trap(int signal)
 {
-  printf("ending program\n\r");
+  printf("\nending program\n\r");
   run_program=0;
 }
 
@@ -371,8 +370,7 @@ void safety_check(Keyboard keyboard)
   timespec_get(&t_heartbeat,TIME_UTC);
   time_curr_heartbeat = t_heartbeat.tv_nsec;
   //compute time since last execution
-  // double passed_time = time_curr_heartbeat-time_prev_heartbeat;
-  passed_time = time_curr_heartbeat-time_prev_heartbeat;
+  double passed_time = time_curr_heartbeat-time_prev_heartbeat;
 
   //check for rollover
   if(passed_time<=0.0)
@@ -405,10 +403,4 @@ void safety_check(Keyboard keyboard)
   {
     run_program=0;
   }
-
-  // else if (keyboard.key_press == 3)
-  // {
-  //   run_program=0;
-  // }
-  printf("\n");
 }
