@@ -69,6 +69,11 @@ float imu_data[6]; //gabs(filtered_pitch)>MAX_Pitch_ANGLEyro xyz, accel xyz
 long time_curr;
 long time_prev;
 struct timespec te;
+struct timespec t_heartbeat;
+long time_curr_heartbeat;
+long time_prev_heartbeat = 0.0;
+double passed_time = 0.0; // TODO DELETE
+int hearbeat_prev = 0;
 float yaw=0.0;
 float pitch_angle=0.0;
 float roll_angle=0.0;
@@ -113,7 +118,7 @@ int main (int argc, char *argv[])
       // printf("\n Roll: %10.5f, Filtered roll: %10.5f, roll_gyro_delta: %10.5f , gyro y: %10.5f ", roll_angle, filtered_roll, roll_gyro_delta, imu_data[1]);
       
 
-      printf(" Filtered pitch: %10.5f, Filtered roll: %10.5f\n", filtered_pitch, filtered_roll);
+      // printf(" Filtered pitch: %10.5f, Filtered roll: %10.5f\n", filtered_pitch, filtered_roll);
       
       // Save values to CSV
       // temp_pitch += pitch_gyro_delta;
@@ -124,7 +129,7 @@ int main (int argc, char *argv[])
       //to refresh values from shared memory first
       Keyboard keyboard=*shared_memory;
 
-      // printf("key_press: %d  heartbeat: %d  version: %d", keyboard.key_press, keyboard.heartbeat, keyboard.version);
+      printf("key_press: %d  heartbeat: %d  version: %d  Tcurr: %d  Tprev: %d  Tpassed %10.5lf", keyboard.key_press, keyboard.heartbeat, keyboard.version, time_curr_heartbeat, time_prev_heartbeat, passed_time);
       safety_check(keyboard);
 
     }
@@ -265,7 +270,7 @@ void update_filter()
   timespec_get(&te,TIME_UTC);
   time_curr=te.tv_nsec;
   //compute time since last execution
-  float imu_diff=time_curr-time_prev;           
+  float imu_diff=time_curr-time_prev;
   
   //check for rollover
   if(imu_diff<=0)
@@ -328,7 +333,6 @@ int setup_imu()
   return 0;
 }
 
-
 //function to add
 void setup_keyboard()
 {
@@ -360,6 +364,35 @@ void trap(int signal)
 
 void safety_check(Keyboard keyboard)
 {
+/*
+  ADD COMMENT TODO
+*/
+  //get current time in nanoseconds
+  timespec_get(&t_heartbeat,TIME_UTC);
+  time_curr_heartbeat = t_heartbeat.tv_nsec;
+  //compute time since last execution
+  // double passed_time = time_curr_heartbeat-time_prev_heartbeat;
+  passed_time = time_curr_heartbeat-time_prev_heartbeat;
+
+  //check for rollover
+  if(passed_time<=0.0)
+  {
+    passed_time+=1000000000.0;
+  }
+
+  //convert to seconds
+  passed_time=passed_time/1000000000.0;
+
+  if (hearbeat_prev != keyboard.heartbeat)
+  {
+    hearbeat_prev = keyboard.heartbeat;
+    time_prev_heartbeat = time_curr_heartbeat;
+  }
+  else if (passed_time>0.25)
+  {
+    run_program=0;
+  }
+
   if (keyboard.key_press == 32)
   {
     run_program=0;
@@ -368,7 +401,6 @@ void safety_check(Keyboard keyboard)
   {
     run_program=0;
   }
-
   else if (abs(imu_data[0])>MAX_GYRO_RATE || abs(imu_data[1])>MAX_GYRO_RATE || abs(imu_data[2])>MAX_GYRO_RATE)
   {
     run_program=0;
