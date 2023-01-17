@@ -347,7 +347,7 @@ void setup_keyboard()
 //when cntrl+c pressed, kill motors
 void trap(int signal)
 {
-  printf("\nending program\n\r");
+  printf("\nending program - control C was pressed - Kill Motors\n\r");
   run_program=0;
 }
 
@@ -384,19 +384,23 @@ void safety_check(Keyboard keyboard)
   else if (passed_time>0.25)
   { // If the previous heartbeat is the same as the current heartbeat and 0.25s has passed
     // Stop the student from executing.
+    printf("Keyboard timedout! (Heartbeat)");
     run_program=0;
   }
 
   if (keyboard.key_press == 32)
   { // If the keyboards space bar is pressed, then stop the student code.
+    printf("\n Space bar was pressed!");
     run_program=0;
   }
   else if (abs(filtered_pitch)>MAX_PITCH_ANGLE || abs(filtered_roll)>MAX_ROLL_ANGLE)
   { // If the pitch or roll angles are larger than the max allowable angle, then stop the student code.
+    printf("\n Pitch or Roll angle exceeds maximum limit: Pitch: %10.5f  Roll: %10.5f", filtered_pitch, filtered_roll);
     run_program=0;
   }
   else if (abs(imu_data[0])>MAX_GYRO_RATE || abs(imu_data[1])>MAX_GYRO_RATE || abs(imu_data[2])>MAX_GYRO_RATE)
   { // If any of the 3 gyro rates are larger than the max allowable gyro rate, then stop the student code.
+    printf("\n Gyro rate exceeds maximum limit: x: %10.5f  y: %10.5f  z: %10.5f", imu_data[0], imu_data[1], imu_data[2]);
     run_program=0;
   }
 }
