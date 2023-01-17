@@ -89,11 +89,8 @@ int run_program=1;
  
 int main (int argc, char *argv[])
 {
-
     setup_imu();
     calibrate_imu();
-
-    //in main before while(1) loop add...
     setup_keyboard();
     signal(SIGINT, &trap);
 
@@ -125,7 +122,7 @@ int main (int argc, char *argv[])
       // fprintf(file_p, "%f, %f, %f\n", temp_pitch, pitch_angle, filtered_pitch);
       // fprintf(file_p, "%f, %f, %f\n", temp_roll, roll_angle, filtered_roll);
 
-      //to refresh values from shared memory first
+      // to refresh values from shared memory first
       Keyboard keyboard=*shared_memory;
 
       printf("key_press: %d  heartbeat: %d  version: %d\n", keyboard.key_press, keyboard.heartbeat, keyboard.version);
@@ -141,8 +138,7 @@ int main (int argc, char *argv[])
 
 void calibrate_imu()
 {
-  //maybe initialize sun variables locally
-//loop that runs to sum data over a 1000 iterations
+// initialize sum variables locally
 float x_gyro_sum =0.0;
 float y_gyro_sum=0.0;
 float z_gyro_sum=0.0;
@@ -150,8 +146,8 @@ float roll_sum=0.0;
 float pitch_sum=0.0;
 float accel_z_sum=0.0;
 
+// loop that runs to sum data over a 1000 iterations
 for (int i=0; i<1000; i++){
-
   read_imu();
 
   x_gyro_sum += imu_data[0];
@@ -178,7 +174,7 @@ printf("\n calibration complete, %f %f %f %f %f %f\n\r",x_gyro_calibration,y_gyr
 
 void read_imu()
 {
-  int address=59;//todo: set address value for accel x value 
+  int address=59;// set address value for accel x value 
   float ax=0;
   float az=0;
   float ay=0; 
@@ -194,10 +190,10 @@ void read_imu()
     vw=vw ^ 0xffff;
     vw=-vw-1;
   }
-  imu_data[3]=vw*(-2.0-2.0)/(-32768.0-32767.0);//  todo: convert vw from raw values to "g's"
+  imu_data[3]=vw*(-2.0-2.0)/(-32768.0-32767.0);// convert vw from raw values to "g's"
   
   
-  address=61;//todo: set address value for accel y value
+  address=61;// set address value for accel y value
   vh=wiringPiI2CReadReg8(imu,address);
   vl=wiringPiI2CReadReg8(imu,address+1);
   vw=(((vh<<8)&0xff00)|(vl&0x00ff))&0xffff;
@@ -206,10 +202,10 @@ void read_imu()
     vw=vw ^ 0xffff;
     vw=-vw-1;
   }          
-  imu_data[4]=vw*(-2.0-2.0)/(-32768.0-32767.0);//Todo: convert vw from raw values to "g's"
+  imu_data[4]=vw*(-2.0-2.0)/(-32768.0-32767.0);// convert vw from raw values to "g's"
   
   
-  address=63;//todo: set addres value for accel z value;
+  address=63;// set addres value for accel z value;
   vh=wiringPiI2CReadReg8(imu,address);
   vl=wiringPiI2CReadReg8(imu,address+1);
   vw=(((vh<<8)&0xff00)|(vl&0x00ff))&0xffff;
@@ -218,10 +214,10 @@ void read_imu()
     vw=vw ^ 0xffff;
     vw=-vw-1;
   }          
-  imu_data[5]=vw*(-2.0-2.0)/(-32768.0-32767.0);//todo: convert vw from raw values to g's
+  imu_data[5]=vw*(-2.0-2.0)/(-32768.0-32767.0);// convert vw from raw values to g's
   
   
-  address=67;//todo: set addres value for gyro x value;
+  address=67;// set addres value for gyro x value;
   vh=wiringPiI2CReadReg8(imu,address);
   vl=wiringPiI2CReadReg8(imu,address+1);
   vw=(((vh<<8)&0xff00)|(vl&0x00ff))&0xffff;
@@ -230,9 +226,9 @@ void read_imu()
     vw=vw ^ 0xffff;
     vw=-vw-1;
   }          
-  imu_data[0]= -(x_gyro_calibration + vw*(-500.0-500.0)/(-32768.0-32767.0));////todo: convert vw from raw values to degrees/second 
+  imu_data[0]= -(x_gyro_calibration + vw*(-500.0-500.0)/(-32768.0-32767.0));// convert vw from raw values to degrees/second 
   
-  address=69;//todo: set addres value for gyro y value;
+  address=69;// set addres value for gyro y value;
   vh=wiringPiI2CReadReg8(imu,address);
   vl=wiringPiI2CReadReg8(imu,address+1);
   vw=(((vh<<8)&0xff00)|(vl&0x00ff))&0xffff;
@@ -241,9 +237,9 @@ void read_imu()
     vw=vw ^ 0xffff;
     vw=-vw-1;
   }          
- imu_data[1]=y_gyro_calibration + vw*(-500.0-500.0)/(-32768.0-32767.0);////todo: convert vw from raw values to degrees/second     
+ imu_data[1]=y_gyro_calibration + vw*(-500.0-500.0)/(-32768.0-32767.0);// convert vw from raw values to degrees/second     
   
-  address=71;////todo: set addres value for gyro z value;
+  address=71;// set addres value for gyro z value;
   vh=wiringPiI2CReadReg8(imu,address);
   vl=wiringPiI2CReadReg8(imu,address+1);
   vw=(((vh<<8)&0xff00)|(vl&0x00ff))&0xffff;
@@ -252,19 +248,16 @@ void read_imu()
     vw=vw ^ 0xffff;
     vw=-vw-1;
   }          
-  imu_data[2]=z_gyro_calibration + vw*(-500.0-500.0)/(-32768.0-32767.0);////todo: convert vw from raw values to degrees/second
+  imu_data[2]=z_gyro_calibration + vw*(-500.0-500.0)/(-32768.0-32767.0);// convert vw from raw values to degrees/second
   
   // Calculate Roll, Pitch and Yaw
   pitch_angle = (atan2(imu_data[4],-imu_data[5])*180/pi) + pitch_calibration;
   roll_angle = (atan2(imu_data[3],-imu_data[5])*180/pi) + roll_calibration;
   // yaw = todo
-
- 
 }
 
 void update_filter()
 {
-
   //get current time in nanoseconds
   timespec_get(&te,TIME_UTC);
   time_curr=te.tv_nsec;
@@ -279,23 +272,22 @@ void update_filter()
   //convert to seconds
   imu_diff=imu_diff/1000000000;
   time_prev=time_curr;
-  
+
   //comp. filter for roll, pitch here: 
-  roll_gyro_delta = imu_data[1]*imu_diff; //Integrated gyro roll angle
+  roll_gyro_delta = imu_data[1]*imu_diff; // Gyro roll angle calculation
   filtered_roll = roll_angle*A + (1-A)*(roll_gyro_delta+filtered_roll);
 
-  pitch_gyro_delta = imu_data[0]*imu_diff; //Integrated gyro pitch angle
+  pitch_gyro_delta = imu_data[0]*imu_diff; // Gyro pitch angle calculation
   filtered_pitch = pitch_angle*A + (1-A)*(pitch_gyro_delta+filtered_pitch);
 }
 
 int setup_imu()
 {
   wiringPiSetup ();
-  
-  
+
   //setup imu on I2C
   imu=wiringPiI2CSetup (0x68) ; //accel/gyro address
-  
+
   if(imu==-1)
   {
     printf("-----cant connect to I2C device %d --------\n",imu);
@@ -303,14 +295,12 @@ int setup_imu()
   }
   else
   {
-  
     printf("connected to i2c device %d\n",imu);
     printf("imu who am i is %d \n",wiringPiI2CReadReg8(imu,0x75));
     
     uint8_t Ascale = AFS_2G;     // AFS_2G, AFS_4G, AFS_8G, AFS_16G
     uint8_t Gscale = GFS_500DPS; // GFS_250DPS, GFS_500DPS, GFS_1000DPS, GFS_2000DPS
-    
-    
+
     //init imu
     wiringPiI2CWriteReg8(imu,PWR_MGMT_1, 0x00);
     printf("                    \n\r");
@@ -364,7 +354,12 @@ void trap(int signal)
 void safety_check(Keyboard keyboard)
 {
 /*
-  ADD COMMENT TODO
+  Safety checks that stops the student program when any of the following cases are violated/detected:
+  – Any gyro rate > 300 degrees/sec
+  – Roll angle > 45 or <-45
+  – Pitch angle >45 or <-45
+  – Keyboard press of space
+  – Keyboard timeout (Heart beat does not update in 0.25 seconds)
 */
   //get current time in nanoseconds
   timespec_get(&t_heartbeat,TIME_UTC);
@@ -382,25 +377,26 @@ void safety_check(Keyboard keyboard)
   passed_time=passed_time/1000000000.0;
 
   if (hearbeat_prev != keyboard.heartbeat)
-  {
+  { // Reset previous heartbeat time stamp if a new heartbeat is detected.
     hearbeat_prev = keyboard.heartbeat;
     time_prev_heartbeat = time_curr_heartbeat;
   }
   else if (passed_time>0.25)
-  {
+  { // If the previous heartbeat is the same as the current heartbeat and 0.25s has passed
+    // Stop the student from executing.
     run_program=0;
   }
 
   if (keyboard.key_press == 32)
-  {
+  { // If the keyboards space bar is pressed, then stop the student code.
     run_program=0;
   }
   else if (abs(filtered_pitch)>MAX_PITCH_ANGLE || abs(filtered_roll)>MAX_ROLL_ANGLE)
-  {
+  { // If the pitch or roll angles are larger than the max allowable angle, then stop the student code.
     run_program=0;
   }
   else if (abs(imu_data[0])>MAX_GYRO_RATE || abs(imu_data[1])>MAX_GYRO_RATE || abs(imu_data[2])>MAX_GYRO_RATE)
-  {
+  { // If any of the 3 gyro rates are larger than the max allowable gyro rate, then stop the student code.
     run_program=0;
   }
 }
