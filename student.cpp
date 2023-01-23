@@ -159,6 +159,7 @@ int main (int argc, char *argv[])
       Keyboard keyboard=*shared_memory;
       safety_check(keyboard);
 
+      // Update motor speeds
       pid_update();
 
       // set_PWM(0,1100);
@@ -463,9 +464,11 @@ void safety_check(Keyboard keyboard)
 
 void pid_update()
 {
-  pitch_error = 0.0 - filtered_pitch; // Make the 0.0 Desired pitch
+  // Calculate pitch error
+  pitch_error = 0.0 - filtered_pitch;
 
-  pwm_0 = NEUTRAL_POWER - pitch_error*P; // Was pitch_angle ! LOL
+  // P - Controller for pitch
+  pwm_0 = NEUTRAL_POWER - pitch_error*P;
   pwm_3 = pwm_0;
   pwm_1 = NEUTRAL_POWER + pitch_error*P;
   pwm_2 = pwm_1;
@@ -513,10 +516,6 @@ void pid_update()
   set_PWM(2,pwm_2);
   set_PWM(3,pwm_3);
   delay(100); // TODO motor speed does not change if we don'y have a delay.
-  // set_PWM(0,1000);
-  // set_PWM(1,1000); 
-  // set_PWM(2,1100);
-  // set_PWM(3,1100);
 }
 
 
