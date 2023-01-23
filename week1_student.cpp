@@ -22,7 +22,12 @@
 #define PWR_MGMT_1       0x6B // Device defaults to the SLEEP mode
 #define PWR_MGMT_2       0x6C
 //add constants
-#define PWM_MAX 1300
+#define A                0.02  //Complemetary filter ratio
+#define MAX_GYRO_RATE    300   // deg/s
+#define MAX_ROLL_ANGLE   45.0  // deg
+#define MAX_PITCH_ANGLE  45.0  // deg
+#define PWM_MAX          1200
+#define PWM_OFF          1000
 #define frequency 25000000.0
 #define LED0 0x6			
 #define LED0_ON_L 0x6		
@@ -30,6 +35,8 @@
 #define LED0_OFF_L 0x8		
 #define LED0_OFF_H 0x9		
 #define LED_MULTIPLYER 4	
+#define NEUTRAL_POWER    1100
+#define P                  5
 
 
 
@@ -51,6 +58,13 @@ int setup_imu();
 void calibrate_imu();      
 void read_imu();    
 void update_filter();
+// void setup_keyboard();
+void trap(int signal);
+// void safety_check(Keyboard keyboard);
+void init_pwm();
+void init_motor(uint8_t channel);
+void set_PWM( uint8_t channel, float time_on_us);
+void pid_update();
 
 //global variables
 int imu;
@@ -64,17 +78,29 @@ float imu_data[6]; //gyro xyz, accel xyz
 long time_curr;
 long time_prev;
 struct timespec te;
+struct timespec t_heartbeat;
+long time_curr_heartbeat;
+long time_prev_heartbeat = 0.0;
+int hearbeat_prev = 0;
 float yaw=0;
 float pitch_angle=0;
 float roll_angle=0;
-
-//add global variable
+//intitialising variables used to average data for calibration
+float pi = 3.14159;
+float filtered_pitch = 0.0;
+float filtered_roll = 0.0;
+float roll_gyro_delta=0.0;
+float pitch_gyro_delta = 0.0;
+FILE *file_p;
 int pwm;
+float pwm_0 = 1000;
+float pwm_1 = 1000;
+float pwm_2 = 1000;
+float pwm_3 = 1000;
+float pitch_error;
 int run_program=1;
 
-
-
-
+// Keyboard* shared_memory;
 
 void init_pwm()
 {
@@ -162,7 +188,6 @@ void set_PWM( uint8_t channel, float time_on_us)
   }
 }
 
-
  
 int main (int argc, char *argv[])
 {
@@ -176,47 +201,116 @@ int main (int argc, char *argv[])
     delay(1000);
 
     setup_imu();
+    printf("Calibrate");
     calibrate_imu();
-    
- 
-    
-    while(1)
+    printf("Calibrate done");
+    // setup_keyboard();
+    signal(SIGINT, &trap);
+    delay(1000);
+
+    //to refresh values from shared memory first
+    // Keyboard keyboard=*shared_memory;
+
+    // Save values to CSV
+    // file_p = fopen("common_filter.csv", "w+");
+    // float temp_pitch = 0.0;
+    // float temp_roll = 0.0;
+
+    while(run_program)
     {
       read_imu();      
       update_filter();   
 
-      set_PWM(0,1100);//speed between 1000 and PWM_MAX, motor 0-3
-      set_PWM(1,1100);//speed between 1000 and PWM_MAX, motor 0-3
-      set_PWM(2,1100);//speed between 1000 and PWM_MAX, motor 0-3
-      set_PWM(3,1100);//speed between 1000 and PWM_MAX, motor 0-3
+      // set_PWM(0,1100);//speed between 1000 and PWM_MAX, motor 0-3
+      // set_PWM(1,1100);//speed between 1000 and PWM_MAX, motor 0-3
+      // set_PWM(2,1100);//speed between 1000 and PWM_MAX, motor 0-3
+      // set_PWM(3,1100);//speed between 1000 and PWM_MAX, motor 0-3
 
-     
-    }
+      //Introducing 100millisec delay to allow the displayed data to be more readable
+      // delay(100);
+      // printf("\n Gyro(xyz) = %10.5f %10.5f %10.5f     Pitch = %10.5f Roll = %10.5f", imu_data[0], imu_data[1], imu_data[2], pitch_angle, roll_angle);
       
-    
-   
-  
+      // printf("\n Pitch: %10.5f, Filtered pitch: %10.5f, pitch_gyro_delta: %10.5f , gyro x: %10.5f ", pitch_angle, filtered_pitch, pitch_gyro_delta, imu_data[0]);
+      // printf("\n Roll: %10.5f, Filtered roll: %10.5f, roll_gyro_delta: %10.5f , gyro y: %10.5f ", roll_angle, filtered_roll, roll_gyro_delta, imu_data[1]);
+      
+
+      // printf(" Filtered pitch: %10.5f, Filtered roll: %10.5f\n", filtered_pitch, filtered_roll);
+      
+      // Save values to CSV
+      // temp_pitch += pitch_gyro_delta;
+      // temp_roll += roll_gyro_delta;
+      // fprintf(file_p, "%f, %f, %f\n", temp_pitch, pitch_angle, filtered_pitch);
+      // fprintf(file_p, "%f, %f, %f\n", temp_roll, roll_angle, filtered_roll);
+
+      // to refresh values from shared memory first
+      // Keyboard keyboard=*shared_memory;
+      // safety_check(keyboard);
+
+      pid_update();
+
+      // set_PWM(0,1100);//speed between 1000 and PWM_MAX, motor 0-3
+      // set_PWM(1,1100);//speed between 1000 and PWM_MAX, motor 0-3
+      // set_PWM(2,1100);//speed between 1000 and PWM_MAX, motor 0-3
+      // set_PWM(3,1100);//speed between 1000 and PWM_MAX, motor 0-3
+
+      // set_PWM(0,1100);
+      // set_PWM(1,1100); 
+      // set_PWM(2,1100);
+      // set_PWM(3,1100);
+
+      // printf("key_press: %d  heartbeat: %d  version: %d\n", keyboard.key_press, keyboard.heartbeat, keyboard.version);
+      // printf("pwm_0: %f  pwm_1: %f  pwm_2: %f  pwm_3: %f  pitch_error: %f run = %d\n", pwm_0, pwm_1, pwm_2, pwm_3, pitch_error, run_program);
+    }
+
+    // Save values to CSV
+    // fclose(file_p);
+
+    // Kill all motors
+    set_PWM(0,PWM_OFF); // Motor number and speed - 1000->1300
+    set_PWM(1,PWM_OFF);
+    set_PWM(2,PWM_OFF);
+    set_PWM(3,PWM_OFF);
+    delay(1000);
+
+    return 0;
 }
 
 void calibrate_imu()
 {
- 
-  /*
-  x_gyro_calibration=??
-  y_gyro_calibration=??
-  z_gyro_calibration=??
-  roll_calibration=??
-  pitch_calibration=??
-  accel_z_calibration=??
-  */
-printf("calibration complete, %f %f %f %f %f %f\n\r",x_gyro_calibration,y_gyro_calibration,z_gyro_calibration,roll_calibration,pitch_calibration,accel_z_calibration);
+  // initialize sum variables locally
+  float x_gyro_sum =0.0;
+  float y_gyro_sum=0.0;
+  float z_gyro_sum=0.0;
+  float roll_sum=0.0;
+  float pitch_sum=0.0;
+  float accel_z_sum=0.0;
 
+  // loop that runs to sum data over a 1000 iterations
+  for (int i=0; i<1000; i++){
+    read_imu();
+    x_gyro_sum += imu_data[0];
+    y_gyro_sum += imu_data[1];
+    z_gyro_sum += imu_data[2];
+    roll_sum += roll_angle;
+    pitch_sum += pitch_angle;
+    accel_z_sum += imu_data[5];
+  }
 
+  // Add negetive to eliminate drift
+  //Averaging data using the summation variables
+  x_gyro_calibration = -x_gyro_sum/1000.0;
+  y_gyro_calibration = -y_gyro_sum/1000.0;
+  z_gyro_calibration = -z_gyro_sum/1000.0;
+  roll_calibration = -roll_sum/1000.0;
+  pitch_calibration = -pitch_sum/1000.0;
+  accel_z_calibration = -accel_z_sum/1000.0;
+
+  printf("\n calibration complete, %f %f %f %f %f %f\n\r",x_gyro_calibration,y_gyro_calibration,z_gyro_calibration,roll_calibration,pitch_calibration,accel_z_calibration);
 }
 
 void read_imu()
 {
-  int address=0;//todo: set address value for accel x value 
+  int address=59;// set address value for accel x value 
   float ax=0;
   float az=0;
   float ay=0; 
@@ -231,11 +325,11 @@ void read_imu()
   {
     vw=vw ^ 0xffff;
     vw=-vw-1;
-  }          
-  imu_data[3]=0;//  todo: convert vw from raw values to "g's"
+  }
+  imu_data[3]=vw*(-2.0-2.0)/(-32768.0-32767.0);// convert vw from raw values to "g's"
   
   
-  address=0;//todo: set address value for accel y value
+  address=61;// set address value for accel y value
   vh=wiringPiI2CReadReg8(imu,address);
   vl=wiringPiI2CReadReg8(imu,address+1);
   vw=(((vh<<8)&0xff00)|(vl&0x00ff))&0xffff;
@@ -244,10 +338,10 @@ void read_imu()
     vw=vw ^ 0xffff;
     vw=-vw-1;
   }          
-  imu_data[4]=0;//Todo: convert vw from raw values to "g's"
+  imu_data[4]=vw*(-2.0-2.0)/(-32768.0-32767.0);// convert vw from raw values to "g's"
   
   
-  address=0;//todo: set addres value for accel z value;
+  address=63;// set addres value for accel z value;
   vh=wiringPiI2CReadReg8(imu,address);
   vl=wiringPiI2CReadReg8(imu,address+1);
   vw=(((vh<<8)&0xff00)|(vl&0x00ff))&0xffff;
@@ -256,10 +350,10 @@ void read_imu()
     vw=vw ^ 0xffff;
     vw=-vw-1;
   }          
-  imu_data[5]=0;//todo: convert vw from raw values to g's
+  imu_data[5]=vw*(-2.0-2.0)/(-32768.0-32767.0);// convert vw from raw values to g's
   
   
-  address=0;//todo: set addres value for gyro x value;
+  address=67;// set addres value for gyro x value;
   vh=wiringPiI2CReadReg8(imu,address);
   vl=wiringPiI2CReadReg8(imu,address+1);
   vw=(((vh<<8)&0xff00)|(vl&0x00ff))&0xffff;
@@ -268,9 +362,9 @@ void read_imu()
     vw=vw ^ 0xffff;
     vw=-vw-1;
   }          
-  imu_data[0]=x_gyro_calibration+0;////todo: convert vw from raw values to degrees/second
+  imu_data[0]= -(x_gyro_calibration + vw*(-500.0-500.0)/(-32768.0-32767.0));// convert vw from raw values to degrees/second 
   
-  address=0;//todo: set addres value for gyro y value;
+  address=69;// set addres value for gyro y value;
   vh=wiringPiI2CReadReg8(imu,address);
   vl=wiringPiI2CReadReg8(imu,address+1);
   vw=(((vh<<8)&0xff00)|(vl&0x00ff))&0xffff;
@@ -279,9 +373,9 @@ void read_imu()
     vw=vw ^ 0xffff;
     vw=-vw-1;
   }          
- imu_data[1]=y_gyro_calibration+0;////todo: convert vw from raw values to degrees/second
+ imu_data[1]=y_gyro_calibration + vw*(-500.0-500.0)/(-32768.0-32767.0);// convert vw from raw values to degrees/second     
   
-  address=0;////todo: set addres value for gyro z value;
+  address=71;// set addres value for gyro z value;
   vh=wiringPiI2CReadReg8(imu,address);
   vl=wiringPiI2CReadReg8(imu,address+1);
   vw=(((vh<<8)&0xff00)|(vl&0x00ff))&0xffff;
@@ -290,21 +384,21 @@ void read_imu()
     vw=vw ^ 0xffff;
     vw=-vw-1;
   }          
-  imu_data[2]=z_gyro_calibration+0;////todo: convert vw from raw values to degrees/second
+  imu_data[2]=z_gyro_calibration + vw*(-500.0-500.0)/(-32768.0-32767.0);// convert vw from raw values to degrees/second
   
- 
-
-
+  // Calculate Roll, Pitch and Yaw
+  pitch_angle = (atan2(imu_data[4],-imu_data[5])*180/pi) + pitch_calibration;
+  roll_angle = (atan2(imu_data[3],-imu_data[5])*180/pi) + roll_calibration;
+  // yaw = todo
 }
 
 void update_filter()
 {
-
   //get current time in nanoseconds
   timespec_get(&te,TIME_UTC);
   time_curr=te.tv_nsec;
   //compute time since last execution
-  float imu_diff=time_curr-time_prev;           
+  float imu_diff=time_curr-time_prev;
   
   //check for rollover
   if(imu_diff<=0)
@@ -314,10 +408,14 @@ void update_filter()
   //convert to seconds
   imu_diff=imu_diff/1000000000;
   time_prev=time_curr;
-  
-  //comp. filter for roll, pitch here: 
-}
 
+  //comp. filter for roll, pitch here: 
+  roll_gyro_delta = imu_data[1]*imu_diff; // Gyro roll angle calculation
+  filtered_roll = roll_angle*A + (1-A)*(roll_gyro_delta+filtered_roll);
+
+  pitch_gyro_delta = imu_data[0]*imu_diff; // Gyro pitch angle calculation
+  filtered_pitch = pitch_angle*A + (1-A)*(pitch_gyro_delta+filtered_pitch);
+}
 
 int setup_imu()
 {
@@ -363,5 +461,79 @@ int setup_imu()
   return 0;
 }
 
+//when cntrl+c pressed, kill motors
+void trap(int signal)
+{
+  printf("\nending program - control C was pressed - Kill Motors\n\r");
+  // Kill all motors
+  set_PWM(0,PWM_OFF); // Motor number and speed - 1000->1300
+  set_PWM(1,PWM_OFF);
+  set_PWM(2,PWM_OFF);
+  set_PWM(3,PWM_OFF);
+  delay(1000);
+  run_program=0;
+}
 
+// void safety_check(Keyboard keyboard)
+// {
+// /*
+//   Safety checks that stops the student program when any of the following cases are violated/detected:
+//   – Any gyro rate > 300 degrees/sec
+//   – Roll angle > 45 or <-45
+//   – Pitch angle >45 or <-45
+//   – Keyboard press of space
+//   – Keyboard timeout (Heart beat does not update in 0.25 seconds)
+// */
 
+//   //get current time in nanoseconds
+//   timespec_get(&t_heartbeat,TIME_UTC);
+//   time_curr_heartbeat = t_heartbeat.tv_nsec;
+//   //compute time since last execution
+//   double passed_time = time_curr_heartbeat-time_prev_heartbeat;
+
+//   //check for rollover
+//   if(passed_time<=0.0)
+//   {
+//     passed_time+=1000000000.0;
+//   }
+
+//   //convert to seconds
+//   passed_time=passed_time/1000000000.0;
+
+//   if (hearbeat_prev != keyboard.heartbeat)
+//   { // Reset previous heartbeat time stamp if a new heartbeat is detected.
+//     hearbeat_prev = keyboard.heartbeat;
+//     time_prev_heartbeat = time_curr_heartbeat;
+//   }
+//   else if (passed_time>0.25)
+//   { // If the previous heartbeat is the same as the current heartbeat and 0.25s has passed
+//     // Stop the student from executing.
+//     printf("Keyboard timedout! (Heartbeat)");
+//     run_program=0;
+//   }
+
+//   if (keyboard.key_press == 32)
+//   { // If the keyboards space bar is pressed, then stop the student code.
+//     printf("\n Space bar was pressed!");
+//     run_program=0;
+//   }
+//   // TODO ADD: else if back below
+//   else if (abs(filtered_pitch)>MAX_PITCH_ANGLE || abs(filtered_roll)>MAX_ROLL_ANGLE)
+//   { // If the pitch or roll angles are larger than the max allowable angle, then stop the student code.
+//     printf("\n Pitch or Roll angle exceeds maximum limit: Pitch: %10.5f  Roll: %10.5f", filtered_pitch, filtered_roll);
+//     run_program=0;
+//   }
+//   else if (abs(imu_data[0])>MAX_GYRO_RATE || abs(imu_data[1])>MAX_GYRO_RATE || abs(imu_data[2])>MAX_GYRO_RATE)
+//   { // If any of the 3 gyro rates are larger than the max allowable gyro rate, then stop the student code.
+//     printf("\n Gyro rate exceeds maximum limit: x: %10.5f  y: %10.5f  z: %10.5f", imu_data[0], imu_data[1], imu_data[2]);
+//     run_program=0;
+//   }
+// }
+
+void pid_update()
+{
+  set_PWM(0,1100);//speed between 1000 and PWM_MAX, motor 0-3
+  set_PWM(1,1100);//speed between 1000 and PWM_MAX, motor 0-3
+  set_PWM(2,1100);//speed between 1000 and PWM_MAX, motor 0-3
+  set_PWM(3,1100);//speed between 1000 and PWM_MAX, motor 0-3
+}

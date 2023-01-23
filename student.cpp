@@ -99,10 +99,10 @@ float roll_gyro_delta=0.0;
 float pitch_gyro_delta = 0.0;
 FILE *file_p;
 int pwm;
-float pwm_0 = 1000;
-float pwm_1 = 1000;
-float pwm_2 = 1000;
-float pwm_3 = 1000;
+int pwm_0 = 1000;
+int pwm_1 = 1000;
+int pwm_2 = 1000;
+int pwm_3 = 1000;
 float pitch_error;
 
 Keyboard* shared_memory;
@@ -123,6 +123,7 @@ int main (int argc, char *argv[])
     calibrate_imu();
     setup_keyboard();
     signal(SIGINT, &trap);
+    delay(1000);
 
     //to refresh values from shared memory first
     Keyboard keyboard=*shared_memory;
@@ -164,57 +165,57 @@ int main (int argc, char *argv[])
       // set_PWM(3,1100);
 
       // printf("key_press: %d  heartbeat: %d  version: %d\n", keyboard.key_press, keyboard.heartbeat, keyboard.version);
-      printf("pwm_0: %f  pwm_1: %f  pwm_2: %f  pwm_3: %f  pitch_error: %f run = %d\n", pwm_0, pwm_1, pwm_2, pwm_3, pitch_error, run_program);
+      printf("pwm_0: %d  pwm_1: %d  pwm_2: %d  pwm_3: %d  pitch_error: %f run = %d\n", pwm_0, pwm_1, pwm_2, pwm_3, pitch_error, run_program);
 
     }
 
     // Save values to CSV
     // fclose(file_p);
 
-    // Kill all motors
-    set_PWM(0,PWM_OFF); // Motor number and speed - 1000->1300
-    set_PWM(1,PWM_OFF);
+    // Kill all motors - TODO NB MOTORS DON"T DIE
+    printf("\n Killing Motors! \n"); 
+    set_PWM(0,PWM_OFF);
+    set_PWM(1,PWM_OFF); 
     set_PWM(2,PWM_OFF);
     set_PWM(3,PWM_OFF);
-    delay(1000);
+    delay(2000);
+    printf("\n Motors dead \n");
 
     return 0;
 }
 
 void calibrate_imu()
 {
-// initialize sum variables locally
-float x_gyro_sum =0.0;
-float y_gyro_sum=0.0;
-float z_gyro_sum=0.0;
-float roll_sum=0.0;
-float pitch_sum=0.0;
-float accel_z_sum=0.0;
+  // initialize sum variables locally
+  float x_gyro_sum =0.0;
+  float y_gyro_sum=0.0;
+  float z_gyro_sum=0.0;
+  float roll_sum=0.0;
+  float pitch_sum=0.0;
+  float accel_z_sum=0.0;
 
-// loop that runs to sum data over a 1000 iterations
-for (int i=0; i<1000; i++){
-  read_imu();
+  // loop that runs to sum data over a 1000 iterations
+  for (int i=0; i<1000; i++){
+    read_imu();
 
-  x_gyro_sum += imu_data[0];
-  y_gyro_sum += imu_data[1];
-  z_gyro_sum += imu_data[2];
-  roll_sum += roll_angle;
-  pitch_sum += pitch_angle;
-  accel_z_sum += imu_data[5];
-}
+    x_gyro_sum += imu_data[0];
+    y_gyro_sum += imu_data[1];
+    z_gyro_sum += imu_data[2];
+    roll_sum += roll_angle;
+    pitch_sum += pitch_angle;
+    accel_z_sum += imu_data[5];
+  }
 
-// Add negetive to eliminate drift
-//Averaging data using the summation variables
-x_gyro_calibration = -x_gyro_sum/1000.0;
-y_gyro_calibration = -y_gyro_sum/1000.0;
-z_gyro_calibration = -z_gyro_sum/1000.0;
-roll_calibration = -roll_sum/1000.0;
-pitch_calibration = -pitch_sum/1000.0;
-accel_z_calibration = -accel_z_sum/1000.0;
+  // Add negetive to eliminate drift
+  //Averaging data using the summation variables
+  x_gyro_calibration = -x_gyro_sum/1000.0;
+  y_gyro_calibration = -y_gyro_sum/1000.0;
+  z_gyro_calibration = -z_gyro_sum/1000.0;
+  roll_calibration = -roll_sum/1000.0;
+  pitch_calibration = -pitch_sum/1000.0;
+  accel_z_calibration = -accel_z_sum/1000.0;
 
-printf("\n calibration complete, %f %f %f %f %f %f\n\r",x_gyro_calibration,y_gyro_calibration,z_gyro_calibration,roll_calibration,pitch_calibration,accel_z_calibration);
-
-
+  printf("\n calibration complete, %f %f %f %f %f %f\n\r",x_gyro_calibration,y_gyro_calibration,z_gyro_calibration,roll_calibration,pitch_calibration,accel_z_calibration);
 }
 
 void read_imu()
@@ -392,10 +393,10 @@ void setup_keyboard()
 //when cntrl+c pressed, kill motors
 void trap(int signal)
 {
-  printf("\nending program - control C was pressed - Kill Motors\n\r");
+  printf("\n ending program - control C was pressed - Kill Motors \n\r");
   // Kill all motors
-  set_PWM(0,PWM_OFF); // Motor number and speed - 1000->1300
-  set_PWM(1,PWM_OFF);
+  set_PWM(0,PWM_OFF);
+  set_PWM(1,PWM_OFF); 
   set_PWM(2,PWM_OFF);
   set_PWM(3,PWM_OFF);
   run_program=0;
@@ -412,40 +413,41 @@ void safety_check(Keyboard keyboard)
   – Keyboard timeout (Heart beat does not update in 0.25 seconds)
 */
 
-  //get current time in nanoseconds
-  timespec_get(&t_heartbeat,TIME_UTC);
-  time_curr_heartbeat = t_heartbeat.tv_nsec;
-  //compute time since last execution
-  double passed_time = time_curr_heartbeat-time_prev_heartbeat;
+  // //get current time in nanoseconds
+  // timespec_get(&t_heartbeat,TIME_UTC);
+  // time_curr_heartbeat = t_heartbeat.tv_nsec;
+  // //compute time since last execution
+  // double passed_time = time_curr_heartbeat-time_prev_heartbeat;
 
-  //check for rollover
-  if(passed_time<=0.0)
-  {
-    passed_time+=1000000000.0;
-  }
+  // //check for rollover
+  // if(passed_time<=0.0)
+  // {
+  //   passed_time+=1000000000.0;
+  // }
 
-  //convert to seconds
-  passed_time=passed_time/1000000000.0;
+  // //convert to seconds
+  // passed_time=passed_time/1000000000.0;
 
-  if (hearbeat_prev != keyboard.heartbeat)
-  { // Reset previous heartbeat time stamp if a new heartbeat is detected.
-    hearbeat_prev = keyboard.heartbeat;
-    time_prev_heartbeat = time_curr_heartbeat;
-  }
-  else if (passed_time>0.25)
-  { // If the previous heartbeat is the same as the current heartbeat and 0.25s has passed
-    // Stop the student from executing.
-    printf("Keyboard timedout! (Heartbeat)");
-    run_program=0;
-  }
+  // if (hearbeat_prev != keyboard.heartbeat)
+  // { // Reset previous heartbeat time stamp if a new heartbeat is detected.
+  //   hearbeat_prev = keyboard.heartbeat;
+  //   time_prev_heartbeat = time_curr_heartbeat;
+  // }
+  // else if (passed_time>0.25)
+  // { // If the previous heartbeat is the same as the current heartbeat and 0.25s has passed
+  //   // Stop the student from executing.
+  //   printf("Keyboard timedout! (Heartbeat)");
+  //   run_program=0;
+  // }
 
-  if (keyboard.key_press == 32)
-  { // If the keyboards space bar is pressed, then stop the student code.
-    printf("\n Space bar was pressed!");
-    run_program=0;
-  }
+  // if (keyboard.key_press == 32)
+  // { // If the keyboards space bar is pressed, then stop the student code.
+  //   printf("\n Space bar was pressed!");
+  //   run_program=0;
+  // }
+
   // TODO ADD: else if back below
-  else if (abs(filtered_pitch)>MAX_PITCH_ANGLE || abs(filtered_roll)>MAX_ROLL_ANGLE)
+  if (abs(filtered_pitch)>MAX_PITCH_ANGLE || abs(filtered_roll)>MAX_ROLL_ANGLE)
   { // If the pitch or roll angles are larger than the max allowable angle, then stop the student code.
     printf("\n Pitch or Roll angle exceeds maximum limit: Pitch: %10.5f  Roll: %10.5f", filtered_pitch, filtered_roll);
     run_program=0;
@@ -459,11 +461,11 @@ void safety_check(Keyboard keyboard)
 
 void pid_update()
 {
-  pitch_error = 0.0 - filtered_pitch;
+  pitch_error = 0.0 - filtered_pitch; // Make the 0.0 Desired pitch
 
-  pwm_0 = NEUTRAL_POWER + pitch_angle*P;
+  pwm_0 = NEUTRAL_POWER - pitch_error*P; // Was pitch_angle ! LOL
   pwm_3 = pwm_0;
-  pwm_1 = NEUTRAL_POWER - pitch_angle*P;
+  pwm_1 = NEUTRAL_POWER + pitch_error*P;
   pwm_2 = pwm_1;
 
   // Limit PWM signal at 1000 - 1300
@@ -504,10 +506,15 @@ void pid_update()
   }
 
   // Set motor speed - Motor number and speed - 1000->1300
-  set_PWM(0,(float)pwm_0);
-  set_PWM(1,(float)pwm_1); 
-  set_PWM(2,(float)pwm_2);
-  set_PWM(3,(float)pwm_3);
+  set_PWM(0,pwm_0);
+  set_PWM(1,pwm_1); 
+  set_PWM(2,pwm_2);
+  set_PWM(3,pwm_3);
+  delay(100); // TODO motor speed does not change if we don'y have a delay.
+  // set_PWM(0,1000);
+  // set_PWM(1,1000); 
+  // set_PWM(2,1100);
+  // set_PWM(3,1100);
 }
 
 
@@ -543,8 +550,6 @@ void init_pwm()
     }
 }
 
-
-
 void init_motor(uint8_t channel)
 {
 	int on_value=0;
@@ -577,7 +582,6 @@ void init_motor(uint8_t channel)
 	delay(100);
 
 }
-
 
 void set_PWM( uint8_t channel, float time_on_us)
 {
