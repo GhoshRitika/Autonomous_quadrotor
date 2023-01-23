@@ -132,6 +132,7 @@ int main (int argc, char *argv[])
     // file_p = fopen("common_filter.csv", "w+");
     // float temp_pitch = 0.0;
     // float temp_roll = 0.0;
+    file_p = fopen("Pitch_P_controller.csv", "w+");
 
     while(run_program==1)
     { 
@@ -150,8 +151,9 @@ int main (int argc, char *argv[])
       // Save values to CSV
       // temp_pitch += pitch_gyro_delta;
       // temp_roll += roll_gyro_delta;
-      // fprintf(file_p, "%f, %f, %f\n", temp_pitch, pitch_angle, filtered_pitch);
+      // fprintf(file_p, "%f, %f, %f,\n", temp_pitch, pitch_angle, filtered_pitch);
       // fprintf(file_p, "%f, %f, %f\n", temp_roll, roll_angle, filtered_roll);
+      fprintf(file_p, "%d, %d, %f, %f,\n", pwm_0, pwm_1, pitch_angle*(20), filtered_pitch*20);
 
       // to refresh values from shared memory first
       Keyboard keyboard=*shared_memory;
@@ -170,7 +172,7 @@ int main (int argc, char *argv[])
     }
 
     // Save values to CSV
-    // fclose(file_p);
+    fclose(file_p);
 
     // Kill all motors - TODO NB MOTORS DON"T DIE
     printf("\n Killing Motors! \n"); 
