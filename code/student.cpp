@@ -23,11 +23,11 @@
 #define USER_CTRL        0x6A  // Bit 7 enable DMP, bit 3 reset DMP
 #define PWR_MGMT_1       0x6B  // Device defaults to the SLEEP mode
 #define PWR_MGMT_2       0x6C
-#define A                0.02  //Complemetary filter ratio
+#define A                0.02  //Complemetary filter ratio // TODO decrease to 0.01
 #define MAX_GYRO_RATE    300   // deg/s
 #define MAX_ROLL_ANGLE   45.0  // deg
 #define MAX_PITCH_ANGLE  45.0  // deg
-#define PWM_MAX          1200
+#define PWM_MAX          1500
 #define PWM_OFF          1000
 #define frequency        25000000.0
 #define LED0             0x6			
@@ -36,8 +36,14 @@
 #define LED0_OFF_L       0x8		
 #define LED0_OFF_H       0x9		
 #define LED_MULTIPLYER     4
-#define NEUTRAL_POWER    1100
-#define P                  5
+#define NEUTRAL_POWER    1250
+#define P                  13 // 13 // 10 // 5
+#define D                  3 // 3 // 5
+#define I                  0.05
+#define MAX_PITCH_I        50 // 75 //50 
+
+// Pitch PID values
+// P 13, D 3 -> Good for pitch hold.
 
 enum Ascale {
   AFS_2G = 0,
@@ -104,6 +110,7 @@ int pwm_1 = 1000;
 int pwm_2 = 1000;
 int pwm_3 = 1000;
 float pitch_error;
+float pitch_error_I = 0.0;
 
 Keyboard* shared_memory;
 int run_program=1;
@@ -129,10 +136,13 @@ int main (int argc, char *argv[])
     Keyboard keyboard=*shared_memory;
 
     // Save values to CSV
-    file_p = fopen("common_filter.csv", "w+");
+    // file_p = fopen("common_filter.csv", "w+");
     float temp_pitch = 0.0;
-    // float temp_roll = 0.0;
+    float temp_roll = 0.0;
     // file_p = fopen("Pitch_P_controller.csv", "w+");
+    // file_p = fopen("W4M3.csv", "w+"); 
+    // file_p = fopen("W4M4.csv", "w+");
+    file_p = fopen("W5M1_PID_pitch.csv", "w+"); 
 
     while(run_program==1)
     { 
@@ -151,9 +161,11 @@ int main (int argc, char *argv[])
       // Save values to CSV
       temp_pitch += pitch_gyro_delta;
       // temp_roll += roll_gyro_delta;
-      fprintf(file_p, "%f, %f, %f,\n", temp_pitch, pitch_angle, filtered_pitch);
+      // fprintf(file_p, "%f, %f, %f,\n", temp_pitch, pitch_angle, filtered_pitch);
       // fprintf(file_p, "%f, %f, %f\n", temp_roll, roll_angle, filtered_roll);
       // fprintf(file_p, "%d, %d, %f, %f,\n", pwm_0, pwm_1, pitch_angle*(20), filtered_pitch*20);
+      // fprintf(file_p, "%d, %d, %f, %f,\n", pwm_0, pwm_1, filtered_pitch*20, imu_data[0]*20);
+      fprintf(file_p, "%d, %d, %f, %f, %f\n", pwm_0, pwm_1,  pitch_angle*(20), temp_pitch*20, filtered_pitch*20);
 
       // to refresh values from shared memory first
       Keyboard keyboard=*shared_memory;
@@ -168,8 +180,8 @@ int main (int argc, char *argv[])
       // set_PWM(3,1100);
 
       // printf("key_press: %d  heartbeat: %d  version: %d\n", keyboard.key_press, keyboard.heartbeat, keyboard.version);
-      printf("pwm_0: %d  pwm_1: %d  pwm_2: %d  pwm_3: %d  pitch_error: %f run = %d\n", pwm_0, pwm_1, pwm_2, pwm_3, pitch_error, run_program);
-
+      // printf("pwm_0: %d  pwm_1: %d  pwm_2: %d  pwm_3: %d  pitch_error: %f run = %d\n", pwm_0, pwm_1, pwm_2, pwm_3, pitch_error, run_program);
+      // printf("pitch_error_I: %5.1f  Filtered_pitch: %5.1f  pitch_error: %5.1f \n", pitch_error_I, filtered_pitch, pitch_error);
     }
 
     // Save values to CSV
@@ -466,14 +478,25 @@ void pid_update()
 {
   // Calculate pitch error
   pitch_error = 0.0 - filtered_pitch;
+  // pitch_velocity = 0.0 - filtered_pitch;
+  pitch_error_I += pitch_error*I;
+
+  if (pitch_error_I > MAX_PITCH_I)
+  {
+    pitch_error_I = MAX_PITCH_I;
+  }
+  else if (pitch_error_I < -MAX_PITCH_I)
+  {
+    pitch_error_I = -MAX_PITCH_I;
+  }
 
   // P - Controller for pitch
-  pwm_0 = NEUTRAL_POWER - pitch_error*P;
+  pwm_0 = NEUTRAL_POWER - pitch_error*P + imu_data[0]*D - pitch_error_I;
   pwm_3 = pwm_0;
-  pwm_1 = NEUTRAL_POWER + pitch_error*P;
+  pwm_1 = NEUTRAL_POWER + pitch_error*P - imu_data[0]*D + pitch_error_I;
   pwm_2 = pwm_1;
 
-  // Limit PWM signal at 1000 - 1300
+  // Limit PWM signal at 1000 - 1300s
   if (pwm_0 > PWM_MAX)
   {
     pwm_0 = PWM_MAX;
