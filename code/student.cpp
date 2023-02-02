@@ -37,14 +37,15 @@
 #define LED0_OFF_H       0x9		
 #define LED_MULTIPLYER   4
 #define NEUTRAL_THRUST   1250
-#define P_PITCH          13 // 13 // 10 // 5
-#define D_PITCH          1.75 //3 // 3 // 5
-#define I_PITCH          0.075 // 0.05
+#define P_PITCH          0 // 13 // 13 // 10 // 5
+#define D_PITCH          0 // 1.75 //3 // 3 // 5
+#define I_PITCH          0 // 0.075 // 0.05
 #define MAX_PITCH_I      100 // 75 //50 
-#define P_ROLL           13
-#define D_ROLL           1.75
-#define I_ROLL           0.075
+#define P_ROLL           0 // 13
+#define D_ROLL           0 // 1.75
+#define I_ROLL           0 // 0.075
 #define MAX_ROLL_I       100
+#define P_YAW            100
 
 // Pitch PID values
 // P 13, D 3 -> Good for pitch hold.
@@ -123,6 +124,8 @@ int thrust = NEUTRAL_THRUST;
 int prev_version = 1000; //  For keyboard control
 float desired_pitch = 0.0;
 float desired_roll = 0.0;
+float desired_yaw_velocity = 0.0;
+float yaw_error_velocity;
 
 // Flags
 int Flag_pause = 1;
@@ -153,13 +156,14 @@ int main (int argc, char *argv[])
 
     // Save values to CSV
     // file_p = fopen("common_filter.csv", "w+");
-    float temp_pitch = 0.0;
-    float temp_roll = 0.0;
+    // float temp_pitch = 0.0;
+    // float temp_roll = 0.0;
     // file_p = fopen("Pitch_P_controller.csv", "w+");
     // file_p = fopen("W4M3.csv", "w+"); 
     // file_p = fopen("W4M4.csv", "w+");
     // file_p = fopen("W5M2_PID_pitch.csv", "w+");
     // file_p = fopen("W5M3_Desired_Roll.csv", "w+");
+    file_p = fopen("W5M5_Zero_Yaw_Velocity.csv", "w+");
 
     while(run_program==1)
     { 
@@ -185,6 +189,8 @@ int main (int argc, char *argv[])
       // fprintf(file_p, "%d, %d, %f, %f, %f\n", pwm_0, pwm_1,  pitch_angle*(20), temp_pitch*20, filtered_pitch*20);
       // fprintf(file_p, "%f, %f\n", filtered_pitch, desired_pitch);
       // fprintf(file_p, "%f, %f\n", filtered_roll, desired_roll);
+      fprintf(file_p, "%d, %d, %d, %d, %f,\n", pwm_0, pwm_1, pwm_2, pwm_3, imu_data[3]*30);
+      
 
       // to refresh values from shared memory first
       Keyboard keyboard=*shared_memory;
@@ -210,7 +216,7 @@ int main (int argc, char *argv[])
     }
 
     // Save values to CSV
-    // fclose(file_p);
+    fclose(file_p);
 
     // Kill all motors
     printf("\n Killing Motors! \n"); 
@@ -509,6 +515,9 @@ void pid_update()
   // roll_velocity = 0.0 - filtered_pitch;
   roll_error_I += roll_error*I_ROLL;
 
+  // Calculate yaw error
+  yaw_error_velocity = desired_yaw_velocity - imu_data[3];
+
   // Limit pitch integral term
   if (pitch_error_I > MAX_PITCH_I)
   {
@@ -535,10 +544,10 @@ void pid_update()
   // pwm_2 = pwm_1;
 
   // PID - Controller for Pitch and Roll
-  pwm_0 = thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I;
-  pwm_1 = thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I;
-  pwm_2 = thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I;
-  pwm_3 = thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I;
+  pwm_0 = thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I - yaw_error_velocity*P_YAW;
+  pwm_1 = thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I + yaw_error_velocity*P_YAW;
+  pwm_2 = thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I - yaw_error_velocity*P_YAW;
+  pwm_3 = thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I + yaw_error_velocity*P_YAW;
 
   // Limit PWM signal at 1000 - 1300s
   if (pwm_0 > PWM_MAX)
