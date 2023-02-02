@@ -35,15 +35,20 @@
 #define LED0_ON_H        0x7		
 #define LED0_OFF_L       0x8		
 #define LED0_OFF_H       0x9		
-#define LED_MULTIPLYER     4
-#define NEUTRAL_POWER    1250
-#define P                  13 // 13 // 10 // 5
-#define D                  3 // 3 // 5
-#define I                  0.05
-#define MAX_PITCH_I        100 // 75 //50 
+#define LED_MULTIPLYER   4
+#define NEUTRAL_THRUST   1250
+#define P_PITCH          0 // 13 // 13 // 10 // 5
+#define D_PITCH          0 // 1.75 //3 // 3 // 5
+#define I_PITCH          0 // 0.075 // 0.05
+#define MAX_PITCH_I      100 // 75 //50 
+#define P_ROLL           13
+#define D_ROLL           1.75
+#define I_ROLL           0.075
+#define MAX_ROLL_I       100
 
 // Pitch PID values
 // P 13, D 3 -> Good for pitch hold.
+// PID Pitch -> P 13 D 1.75 I 0.075 & 100 for max
 
 enum Ascale {
   AFS_2G = 0,
@@ -73,6 +78,7 @@ void update_filter();
 void setup_keyboard();
 void trap(int signal);
 void safety_check(Keyboard keyboard);
+void keyboard_controls(Keyboard keyboard);
 void init_pwm();
 void init_motor(uint8_t channel);
 void set_PWM( uint8_t channel, float time_on_us);
@@ -111,6 +117,16 @@ int pwm_2 = 1000;
 int pwm_3 = 1000;
 float pitch_error;
 float pitch_error_I = 0.0;
+float roll_error;
+float roll_error_I = 0.0;
+int thrust = NEUTRAL_THRUST;
+int prev_version = 1000; //  For keyboard control
+float desired_pitch = 0.0;
+float desired_roll = 0.0;
+
+// Flags
+int Flag_pause = 1;
+
 
 Keyboard* shared_memory;
 int run_program=1;
@@ -142,7 +158,8 @@ int main (int argc, char *argv[])
     // file_p = fopen("Pitch_P_controller.csv", "w+");
     // file_p = fopen("W4M3.csv", "w+"); 
     // file_p = fopen("W4M4.csv", "w+");
-    file_p = fopen("W5M1_PID_pitch.csv", "w+");
+    // file_p = fopen("W5M2_PID_pitch.csv", "w+");
+    file_p = fopen("W5M3_Desired_Roll.csv", "w+");
 
     while(run_program==1)
     { 
@@ -159,20 +176,26 @@ int main (int argc, char *argv[])
       // printf(" Filtered pitch: %10.5f, Filtered roll: %10.5f\n", filtered_pitch, filtered_roll);
       
       // Save values to CSV
-      temp_pitch += pitch_gyro_delta;
+      // temp_pitch += pitch_gyro_delta;
       // temp_roll += roll_gyro_delta;
       // fprintf(file_p, "%f, %f, %f,\n", temp_pitch, pitch_angle, filtered_pitch);
       // fprintf(file_p, "%f, %f, %f\n", temp_roll, roll_angle, filtered_roll);
       // fprintf(file_p, "%d, %d, %f, %f,\n", pwm_0, pwm_1, pitch_angle*(20), filtered_pitch*20);
       // fprintf(file_p, "%d, %d, %f, %f,\n", pwm_0, pwm_1, filtered_pitch*20, imu_data[0]*20);
-      fprintf(file_p, "%d, %d, %f, %f, %f\n", pwm_0, pwm_1,  pitch_angle*(20), temp_pitch*20, filtered_pitch*20);
+      // fprintf(file_p, "%d, %d, %f, %f, %f\n", pwm_0, pwm_1,  pitch_angle*(20), temp_pitch*20, filtered_pitch*20);
+      // fprintf(file_p, "%f, %f\n", filtered_pitch, desired_pitch);
+      fprintf(file_p, "%f, %f\n", filtered_roll, desired_roll);
 
       // to refresh values from shared memory first
       Keyboard keyboard=*shared_memory;
       safety_check(keyboard);
+      keyboard_controls(keyboard);
 
-      // Update motor speeds
-      pid_update();
+      if (Flag_pause == 0) // Pause motors
+      {
+        // Update motor speeds
+        pid_update();
+      }
 
       // set_PWM(0,1100);
       // set_PWM(1,1100); 
@@ -182,6 +205,8 @@ int main (int argc, char *argv[])
       // printf("key_press: %d  heartbeat: %d  version: %d\n", keyboard.key_press, keyboard.heartbeat, keyboard.version);
       // printf("pwm_0: %d  pwm_1: %d  pwm_2: %d  pwm_3: %d  pitch_error: %f run = %d\n", pwm_0, pwm_1, pwm_2, pwm_3, pitch_error, run_program);
       // printf("pitch_error_I: %5.1f  Filtered_pitch: %5.1f  pitch_error: %5.1f \n", pitch_error_I, filtered_pitch, pitch_error);
+      // printf("Filtered_pitch: %5.1f  desired_pitch: %5.1f \n", filtered_pitch, desired_pitch);
+      printf("Filtered_roll: %5.1f  desired_roll: %5.1f \n", filtered_roll, desired_roll);
     }
 
     // Save values to CSV
@@ -428,41 +453,39 @@ void safety_check(Keyboard keyboard)
   – Keyboard timeout (Heart beat does not update in 0.25 seconds)
 */
 
-  // //get current time in nanoseconds
-  // timespec_get(&t_heartbeat,TIME_UTC);
-  // time_curr_heartbeat = t_heartbeat.tv_nsec;
-  // //compute time since last execution
-  // double passed_time = time_curr_heartbeat-time_prev_heartbeat;
+  //get current time in nanoseconds
+  timespec_get(&t_heartbeat,TIME_UTC);
+  time_curr_heartbeat = t_heartbeat.tv_nsec;
+  //compute time since last execution
+  double passed_time = time_curr_heartbeat-time_prev_heartbeat;
 
-  // //check for rollover
-  // if(passed_time<=0.0)
-  // {
-  //   passed_time+=1000000000.0;
-  // }
+  //check for rollover
+  if(passed_time<=0.0)
+  {
+    passed_time+=1000000000.0;
+  }
 
-  // //convert to seconds
-  // passed_time=passed_time/1000000000.0;
+  //convert to seconds
+  passed_time=passed_time/1000000000.0;
 
-  // if (hearbeat_prev != keyboard.heartbeat)
-  // { // Reset previous heartbeat time stamp if a new heartbeat is detected.
-  //   hearbeat_prev = keyboard.heartbeat;
-  //   time_prev_heartbeat = time_curr_heartbeat;
-  // }
-  // else if (passed_time>0.25)
-  // { // If the previous heartbeat is the same as the current heartbeat and 0.25s has passed
-  //   // Stop the student from executing.
-  //   printf("Keyboard timedout! (Heartbeat)");
-  //   run_program=0;
-  // }
+  if (hearbeat_prev != keyboard.heartbeat)
+  { // Reset previous heartbeat time stamp if a new heartbeat is detected.
+    hearbeat_prev = keyboard.heartbeat;
+    time_prev_heartbeat = time_curr_heartbeat;
+  }
+  else if (passed_time>0.25)
+  { // If the previous heartbeat is the same as the current heartbeat and 0.25s has passed
+    // Stop the student from executing.
+    printf("Keyboard timedout! (Heartbeat)");
+    run_program=0;
+  }
 
-  // if (keyboard.key_press == 32)
-  // { // If the keyboards space bar is pressed, then stop the student code.
-  //   printf("\n Space bar was pressed!");
-  //   run_program=0;
-  // }
-
-  // TODO ADD: else if back below
-  if (abs(filtered_pitch)>MAX_PITCH_ANGLE || abs(filtered_roll)>MAX_ROLL_ANGLE)
+  if (keyboard.key_press == 32)
+  { // If the keyboards space bar is pressed, then stop the student code.
+    printf("\n Space bar was pressed!");
+    run_program=0;
+  }
+  else if (abs(filtered_pitch)>MAX_PITCH_ANGLE || abs(filtered_roll)>MAX_ROLL_ANGLE)
   { // If the pitch or roll angles are larger than the max allowable angle, then stop the student code.
     printf("\n Pitch or Roll angle exceeds maximum limit: Pitch: %10.5f  Roll: %10.5f", filtered_pitch, filtered_roll);
     run_program=0;
@@ -477,10 +500,16 @@ void safety_check(Keyboard keyboard)
 void pid_update()
 {
   // Calculate pitch error
-  pitch_error = 0.0 - filtered_pitch;
+  pitch_error = desired_pitch - filtered_pitch;
   // pitch_velocity = 0.0 - filtered_pitch;
-  pitch_error_I += pitch_error*I;
+  pitch_error_I += pitch_error*I_PITCH;
 
+  // Calculate roll error
+  roll_error = desired_roll - filtered_roll;
+  // roll_velocity = 0.0 - filtered_pitch;
+  roll_error_I += roll_error*I_ROLL;
+
+  // Limit pitch integral term
   if (pitch_error_I > MAX_PITCH_I)
   {
     pitch_error_I = MAX_PITCH_I;
@@ -489,12 +518,27 @@ void pid_update()
   {
     pitch_error_I = -MAX_PITCH_I;
   }
+  // Limit roll integral term
+  if (roll_error_I > MAX_ROLL_I)
+  {
+    roll_error_I = MAX_ROLL_I;
+  }
+  else if (roll_error_I < -MAX_ROLL_I)
+  {
+    roll_error_I = -MAX_ROLL_I;
+  }
 
-  // P - Controller for pitch
-  pwm_0 = NEUTRAL_POWER - pitch_error*P + imu_data[0]*D - pitch_error_I;
-  pwm_3 = pwm_0;
-  pwm_1 = NEUTRAL_POWER + pitch_error*P - imu_data[0]*D + pitch_error_I;
-  pwm_2 = pwm_1;
+  // // PID - Controller for pitch
+  // pwm_0 = thrust - pitch_error*P_pitch + imu_data[0]*D_pitch - pitch_error_I;
+  // pwm_3 = pwm_0;
+  // pwm_1 = thrust + pitch_error*P_pitch - imu_data[0]*D_pitch + pitch_error_I;
+  // pwm_2 = pwm_1;
+
+  // PID - Controller for Pitch and Roll
+  pwm_0 = thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I;
+  pwm_1 = thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I;
+  pwm_2 = thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I;
+  pwm_3 = thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I;
 
   // Limit PWM signal at 1000 - 1300s
   if (pwm_0 > PWM_MAX)
@@ -540,7 +584,98 @@ void pid_update()
   set_PWM(3,pwm_3);
 }
 
-
+void keyboard_controls(Keyboard keyboard)
+{
+/*
+  Safety checks that stops the student program when any of the following cases are violated/detected:
+  - u (117) - Start the motors
+  - p (112) - Pause the motors
+  - c (99) - Calibrate 
+  - + (43) - Increase thrust
+  - - (45) - Decrease thrust
+  - w (119) - Increase desired pitch
+  - s (115) - Decrease desired pitch
+  - a (97) - Increase roll left
+  - d (100) - Decrease roll right
+*/
+  if (keyboard.key_press == 43 && prev_version != keyboard.version)
+  {
+    thrust += 5;
+    prev_version = keyboard.version;
+  }
+  else if (keyboard.key_press == 45 && prev_version != keyboard.version)
+  {
+    thrust -= 5;
+    prev_version = keyboard.version;
+  }
+  else if (keyboard.key_press == 112 && prev_version != keyboard.version)
+  {
+    Flag_pause = 1;
+    printf("\n Pause motors \n\r");
+    // Kill all motors
+    set_PWM(0,PWM_OFF);
+    set_PWM(1,PWM_OFF); 
+    set_PWM(2,PWM_OFF);
+    set_PWM(3,PWM_OFF);
+    prev_version = keyboard.version;
+  }
+  else if (keyboard.key_press == 99 && prev_version != keyboard.version)
+  {
+    printf("\n Calibrate IMU \n\r");
+    // Kill all motors
+    set_PWM(0,PWM_OFF);
+    set_PWM(1,PWM_OFF); 
+    set_PWM(2,PWM_OFF);
+    set_PWM(3,PWM_OFF);
+    delay(100);
+    // Reset all calibration values
+    x_gyro_calibration = 0.0;
+    y_gyro_calibration = 0.0;
+    z_gyro_calibration = 0.0;
+    roll_calibration = 0.0;
+    pitch_calibration = 0.0;
+    accel_z_calibration = 0.0;
+    // Calibrate IMU
+    calibrate_imu();
+    // Set integral windup back to 0
+    pitch_error_I = 0.0;
+    roll_error_I = 0.0;
+    desired_pitch = 0.0;
+    desired_roll = 0.0;
+    thrust = NEUTRAL_THRUST;
+    prev_version = keyboard.version;
+    printf("\n Done calibrating IMU \n\r");
+  }
+  else if (keyboard.key_press == 117 && prev_version != keyboard.version)
+  {
+    printf("\n Unpause motors \n\r");
+    Flag_pause = 0;
+    // thrust = NEUTRAL_THRUST;
+    prev_version = keyboard.version;
+  }
+  // Pitch
+  else if (keyboard.key_press == 119 && prev_version != keyboard.version)
+  {
+    desired_pitch += 1.0;
+    prev_version = keyboard.version;
+  }
+  else if (keyboard.key_press == 115 && prev_version != keyboard.version)
+  {
+    desired_pitch -= 1.0;
+    prev_version = keyboard.version;
+  }
+  // ROLL
+  else if (keyboard.key_press == 97 && prev_version != keyboard.version)
+  {
+    desired_roll += 1.0;
+    prev_version = keyboard.version;
+  }
+  else if (keyboard.key_press == 100 && prev_version != keyboard.version)
+  {
+    desired_roll -= 1.0;
+    prev_version = keyboard.version;
+  }
+}
 
 //gcc -o spin spin.cpp -lwiringPi -lm
 void init_pwm()
