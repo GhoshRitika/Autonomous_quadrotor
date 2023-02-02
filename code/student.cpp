@@ -40,7 +40,7 @@
 #define P                  13 // 13 // 10 // 5
 #define D                  3 // 3 // 5
 #define I                  0.05
-#define MAX_PITCH_I        50 // 75 //50 
+#define MAX_PITCH_I        100 // 75 //50 
 
 // Pitch PID values
 // P 13, D 3 -> Good for pitch hold.
