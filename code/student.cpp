@@ -37,9 +37,9 @@
 #define LED0_OFF_H       0x9		
 #define LED_MULTIPLYER   4
 #define NEUTRAL_THRUST   1250
-#define P_PITCH          0 // 13 // 13 // 10 // 5
-#define D_PITCH          0 // 1.75 //3 // 3 // 5
-#define I_PITCH          0 // 0.075 // 0.05
+#define P_PITCH          13 // 13 // 10 // 5
+#define D_PITCH          1.75 //3 // 3 // 5
+#define I_PITCH          0.075 // 0.05
 #define MAX_PITCH_I      100 // 75 //50 
 #define P_ROLL           13
 #define D_ROLL           1.75
@@ -48,7 +48,7 @@
 
 // Pitch PID values
 // P 13, D 3 -> Good for pitch hold.
-// PID Pitch -> P 13 D 1.75 I 0.075 & 100 for max
+// PID Pitch & Roll Good -> P 13 D 1.75 I 0.075 & 100 for max
 
 enum Ascale {
   AFS_2G = 0,
@@ -159,7 +159,7 @@ int main (int argc, char *argv[])
     // file_p = fopen("W4M3.csv", "w+"); 
     // file_p = fopen("W4M4.csv", "w+");
     // file_p = fopen("W5M2_PID_pitch.csv", "w+");
-    file_p = fopen("W5M3_Desired_Roll.csv", "w+");
+    // file_p = fopen("W5M3_Desired_Roll.csv", "w+");
 
     while(run_program==1)
     { 
@@ -184,7 +184,7 @@ int main (int argc, char *argv[])
       // fprintf(file_p, "%d, %d, %f, %f,\n", pwm_0, pwm_1, filtered_pitch*20, imu_data[0]*20);
       // fprintf(file_p, "%d, %d, %f, %f, %f\n", pwm_0, pwm_1,  pitch_angle*(20), temp_pitch*20, filtered_pitch*20);
       // fprintf(file_p, "%f, %f\n", filtered_pitch, desired_pitch);
-      fprintf(file_p, "%f, %f\n", filtered_roll, desired_roll);
+      // fprintf(file_p, "%f, %f\n", filtered_roll, desired_roll);
 
       // to refresh values from shared memory first
       Keyboard keyboard=*shared_memory;
@@ -206,19 +206,19 @@ int main (int argc, char *argv[])
       // printf("pwm_0: %d  pwm_1: %d  pwm_2: %d  pwm_3: %d  pitch_error: %f run = %d\n", pwm_0, pwm_1, pwm_2, pwm_3, pitch_error, run_program);
       // printf("pitch_error_I: %5.1f  Filtered_pitch: %5.1f  pitch_error: %5.1f \n", pitch_error_I, filtered_pitch, pitch_error);
       // printf("Filtered_pitch: %5.1f  desired_pitch: %5.1f \n", filtered_pitch, desired_pitch);
-      printf("Filtered_roll: %5.1f  desired_roll: %5.1f \n", filtered_roll, desired_roll);
+      // printf("Filtered_roll: %5.1f  desired_roll: %5.1f \n", filtered_roll, desired_roll);
     }
 
     // Save values to CSV
-    fclose(file_p);
+    // fclose(file_p);
 
-    // Kill all motors - TODO NB MOTORS DON"T DIE
+    // Kill all motors
     printf("\n Killing Motors! \n"); 
     set_PWM(0,PWM_OFF);
     set_PWM(1,PWM_OFF); 
     set_PWM(2,PWM_OFF);
     set_PWM(3,PWM_OFF);
-    delay(2000);
+    delay(1000);
     printf("\n Motors dead \n");
 
     return 0;
