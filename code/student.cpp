@@ -507,12 +507,10 @@ void pid_update()
 {
   // Calculate pitch error
   pitch_error = desired_pitch - filtered_pitch;
-  // pitch_velocity = 0.0 - filtered_pitch;
   pitch_error_I += pitch_error*I_PITCH;
 
   // Calculate roll error
   roll_error = desired_roll - filtered_roll;
-  // roll_velocity = 0.0 - filtered_pitch;
   roll_error_I += roll_error*I_ROLL;
 
   // Calculate yaw error
