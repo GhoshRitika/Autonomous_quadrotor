@@ -143,7 +143,7 @@ float pitch_error;
 float pitch_error_I = 0.0;
 float roll_error;
 float roll_error_I = 0.0;
-int thrust = NEUTRAL_THRUST;
+float desired_thrust = NEUTRAL_THRUST;
 int prev_version = 1000; //  For keyboard control
 float desired_pitch = 0.0;
 float desired_roll = 0.0;
@@ -242,7 +242,8 @@ int main (int argc, char *argv[])
 
     //   printf("keypress: %d  pitch: %d  roll: %d  yaw: %d  thrust: %d  sequence_num: %d\n", keyboard.keypress, keyboard.pitch, keyboard.roll, keyboard.yaw, keyboard.thrust, keyboard.sequence_num);
       // printf("key_press: %d  heartbeat: %d  version: %d\n", keyboard.key_press, keyboard.heartbeat, keyboard.version);
-      // printf("pwm_0: %d  pwm_1: %d  pwm_2: %d  pwm_3: %d  pitch_error: %f run = %d\n", pwm_0, pwm_1, pwm_2, pwm_3, pitch_error, run_program);
+    //   printf("pwm_0: %d  pwm_1: %d  pwm_2: %d  pwm_3: %d  pitch_error: %f run = %d\n", pwm_0, pwm_1, pwm_2, pwm_3, pitch_error, run_program);
+    printf("desired_thrust: %f", desired_thrust);
       // printf("pitch_error_I: %5.1f  Filtered_pitch: %5.1f  pitch_error: %5.1f \n", pitch_error_I, filtered_pitch, pitch_error);
       // printf("Filtered_pitch: %5.1f  desired_pitch: %5.1f \n", filtered_pitch, desired_pitch);
       // printf("Filtered_roll: %5.1f  desired_roll: %5.1f \n", filtered_roll, desired_roll);
@@ -630,10 +631,10 @@ void pid_update()
   // pwm_2 = pwm_1;
 
   // PID - Controller for Pitch and Roll
-  pwm_0 = thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I + yaw_error_velocity*P_YAW;
-  pwm_1 = thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I - yaw_error_velocity*P_YAW;
-  pwm_2 = thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I + yaw_error_velocity*P_YAW;
-  pwm_3 = thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I - yaw_error_velocity*P_YAW;
+  pwm_0 = desired_thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I + yaw_error_velocity*P_YAW;
+  pwm_1 = desired_thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I - yaw_error_velocity*P_YAW;
+  pwm_2 = desired_thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I + yaw_error_velocity*P_YAW;
+  pwm_3 = desired_thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I - yaw_error_velocity*P_YAW;
 
   // Limit PWM signal at 1000 - 1300s
   if (pwm_0 > PWM_MAX)
@@ -674,7 +675,7 @@ void pid_update()
 
   // Set motor speed - Motor number and speed - 1000->1300
   set_PWM(0,pwm_0);
-  set_PWM(1,pwm_1); 
+  set_PWM(1,pwm_1);
   set_PWM(2,pwm_2);
   set_PWM(3,pwm_3);
 }
@@ -824,7 +825,7 @@ void joystick_control(Keyboard keyboard)
     roll_error_I = 0.0;
     desired_pitch = 0.0;
     desired_roll = 0.0;
-    thrust = NEUTRAL_THRUST;
+    desired_thrust = NEUTRAL_THRUST;
     printf("\n Done calibrating IMU \n\r");
   }
   else if (keyboard.keypress == 34)
@@ -877,9 +878,7 @@ void get_joystick(Keyboard keyboard)
     // desired_pitch = 
     // desired_roll = 
     // desired_yaw = 
-    // thrust = (JOY_NEUTRAL)
-
-    // ROLL_MAX
+    desired_thrust = (float)((PWM_MAX - PWM_OFF)/(JOY_HIGH - JOY_LOW)*joy_thrust);
 }
 //gcc -o spin spin.cpp -lwiringPi -lm
 void init_pwm()
