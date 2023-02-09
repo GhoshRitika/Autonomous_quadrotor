@@ -46,6 +46,13 @@
 #define I_ROLL           0 // 0.075
 #define MAX_ROLL_I       100
 #define P_YAW            2 // 1 //0.5 // 2 // 7 // 13
+#define PITCH_MAX        15 // Degrees
+#define ROLL_MAX         15 // Degrees
+// #define YAW_MAX
+#define JOY_NEUTRAL      128
+#define JOY_HIGH         240
+#define JOY_LOW          16
+
 
 // Pitch PID values
 // P 13, D 3 -> Good for pitch hold.
@@ -92,7 +99,10 @@ void update_filter();
 void setup_keyboard();
 void trap(int signal);
 void safety_check(Keyboard keyboard);
-void keyboard_controls(Keyboard keyboard);
+// void keyboard_controls(Keyboard keyboard);
+void joystick_control(Keyboard keyboard);
+
+void get_joystick(Keyboard keyboard);
 void init_pwm();
 void init_motor(uint8_t channel);
 void set_PWM( uint8_t channel, float time_on_us);
@@ -139,6 +149,13 @@ float desired_pitch = 0.0;
 float desired_roll = 0.0;
 float desired_yaw_velocity = 0.0;
 float yaw_error_velocity;
+// Joystick variables
+int joy_picth = 0;
+int joy_roll = 0;
+int joy_yaw = 0;
+int joy_thrust = 0;
+int joy_keypress = 0;
+int sequence_num = 0;
 
 // Flags
 int Flag_pause = 1;
@@ -207,8 +224,10 @@ int main (int argc, char *argv[])
 
       // to refresh values from shared memory first
       Keyboard keyboard=*shared_memory;
-    //   safety_check(keyboard);
+      safety_check(keyboard);
     //   keyboard_controls(keyboard);
+    joystick_control(keyboard);
+    get_joystick(keyboard);
 
       if (Flag_pause == 0) // Pause motors
       {
@@ -221,7 +240,7 @@ int main (int argc, char *argv[])
       // set_PWM(2,1100);
       // set_PWM(3,1100);
 
-      printf("keypress: %d  pitch: %d  roll: %d  yaw: %d  thrust: %d  sequence_num: %d\n", keyboard.keypress, keyboard.pitch, keyboard.roll, keyboard.yaw, keyboard.thrust, keyboard.sequence_num);
+    //   printf("keypress: %d  pitch: %d  roll: %d  yaw: %d  thrust: %d  sequence_num: %d\n", keyboard.keypress, keyboard.pitch, keyboard.roll, keyboard.yaw, keyboard.thrust, keyboard.sequence_num);
       // printf("key_press: %d  heartbeat: %d  version: %d\n", keyboard.key_press, keyboard.heartbeat, keyboard.version);
       // printf("pwm_0: %d  pwm_1: %d  pwm_2: %d  pwm_3: %d  pitch_error: %f run = %d\n", pwm_0, pwm_1, pwm_2, pwm_3, pitch_error, run_program);
       // printf("pitch_error_I: %5.1f  Filtered_pitch: %5.1f  pitch_error: %5.1f \n", pitch_error_I, filtered_pitch, pitch_error);
@@ -500,7 +519,7 @@ void trap(int signal)
 //     run_program=0;
 //   }
 
-//   if (keyboard.key_press == 32)
+//   if (keyboard.keypress == 32)
 //   { // If the keyboards space bar is pressed, then stop the student code.
 //     printf("\n Space bar was pressed!");
 //     run_program=0;
@@ -516,6 +535,61 @@ void trap(int signal)
 //     run_program=0;
 //   }
 // }
+
+void safety_check(Keyboard keyboard) // Joystick
+{
+/*
+  Safety checks that stops the student program when any of the following cases are violated/detected:
+  – Any gyro rate > 300 degrees/sec
+  – Roll angle > 45 or <-45
+  – Pitch angle >45 or <-45
+  – Keyboard press of space
+  – Keyboard timeout (Heart beat does not update in 0.25 seconds)
+*/
+
+  //get current time in nanoseconds
+  timespec_get(&t_heartbeat,TIME_UTC);
+  time_curr_heartbeat = t_heartbeat.tv_nsec;
+  //compute time since last execution
+  double passed_time = time_curr_heartbeat-time_prev_heartbeat;
+
+  //check for rollover
+  if(passed_time<=0.0)
+  {
+    passed_time+=1000000000.0;
+  }
+
+  //convert to seconds
+  passed_time=passed_time/1000000000.0;
+
+  if (hearbeat_prev != keyboard.sequence_num)
+  { // Reset previous heartbeat time stamp if a new heartbeat is detected.
+    hearbeat_prev = keyboard.sequence_num;
+    time_prev_heartbeat = time_curr_heartbeat;
+  }
+  else if (passed_time>0.25)
+  { // If the previous heartbeat is the same as the current heartbeat and 0.25s has passed
+    // Stop the student from executing.
+    printf("Keyboard timedout! (Heartbeat)");
+    run_program=0;
+  }
+
+  if (keyboard.keypress == 32)
+  { // If the joystick A button is pressed, then stop the student code.
+    printf("\n A button was pressed!");
+    run_program=0;
+  }
+  else if (abs(filtered_pitch)>MAX_PITCH_ANGLE || abs(filtered_roll)>MAX_ROLL_ANGLE)
+  { // If the pitch or roll angles are larger than the max allowable angle, then stop the student code.
+    printf("\n Pitch or Roll angle exceeds maximum limit: Pitch: %10.5f  Roll: %10.5f", filtered_pitch, filtered_roll);
+    run_program=0;
+  }
+  else if (abs(imu_data[0])>MAX_GYRO_RATE || abs(imu_data[1])>MAX_GYRO_RATE || abs(imu_data[2])>MAX_GYRO_RATE)
+  { // If any of the 3 gyro rates are larger than the max allowable gyro rate, then stop the student code.
+    printf("\n Gyro rate exceeds maximum limit: x: %10.5f  y: %10.5f  z: %10.5f", imu_data[0], imu_data[1], imu_data[2]);
+    run_program=0;
+  }
+}
 
 void pid_update()
 {
@@ -698,6 +772,115 @@ void pid_update()
 //   }
 // }
 
+void joystick_control(Keyboard keyboard)
+{
+/*
+  Safety checks that stops the student program when any of the following cases are violated/detected:
+  - u (34) - Start the motors
+  - p (33) - Pause the motors
+  - c (35) - Calibrate 
+*/
+//   if (keyboard.key_press == 43 && prev_version != keyboard.version)
+//   {
+//     thrust += 5;
+//     prev_version = keyboard.version;
+//   }
+//   else if (keyboard.key_press == 45 && prev_version != keyboard.version)
+//   {
+//     thrust -= 5;
+//     prev_version = keyboard.version;
+//   }
+  if (keyboard.keypress == 33)
+  {
+    Flag_pause = 1;
+    printf("\n Pause motors \n\r");
+    // Kill all motors
+    set_PWM(0,PWM_OFF);
+    set_PWM(1,PWM_OFF); 
+    set_PWM(2,PWM_OFF);
+    set_PWM(3,PWM_OFF);
+    // prev_version = keyboard.version;
+  }
+  else if (keyboard.keypress == 35)
+  {
+    printf("\n Calibrate IMU \n\r");
+    // Kill all motors
+    set_PWM(0,PWM_OFF);
+    set_PWM(1,PWM_OFF); 
+    set_PWM(2,PWM_OFF);
+    set_PWM(3,PWM_OFF);
+    delay(100);
+    // Reset all calibration values
+    x_gyro_calibration = 0.0;
+    y_gyro_calibration = 0.0;
+    z_gyro_calibration = 0.0;
+    roll_calibration = 0.0;
+    pitch_calibration = 0.0;
+    accel_z_calibration = 0.0;
+    // Calibrate IMU
+    calibrate_imu();
+    // Set integral windup back to 0
+    pitch_error_I = 0.0;
+    roll_error_I = 0.0;
+    desired_pitch = 0.0;
+    desired_roll = 0.0;
+    thrust = NEUTRAL_THRUST;
+    printf("\n Done calibrating IMU \n\r");
+  }
+  else if (keyboard.keypress == 34)
+  {
+    printf("\n Unpause motors \n\r");
+    Flag_pause = 0;
+    // thrust = NEUTRAL_THRUST;
+    // prev_version = keyboard.version;
+  }
+  // Pitch
+//   else if (keyboard.key_press == 119 && prev_version != keyboard.version)
+//   {
+//     desired_pitch += 1.0;
+//     prev_version = keyboard.version;
+//   }
+//   else if (keyboard.key_press == 115 && prev_version != keyboard.version)
+//   {
+//     desired_pitch -= 1.0;
+//     prev_version = keyboard.version;
+//   }
+//   // ROLL
+//   else if (keyboard.key_press == 97 && prev_version != keyboard.version)
+//   {
+//     desired_roll += 1.0;
+//     prev_version = keyboard.version;
+//   }
+//   else if (keyboard.key_press == 100 && prev_version != keyboard.version)
+//   {
+//     desired_roll -= 1.0;
+//     prev_version = keyboard.version;
+//   }
+}
+
+void get_joystick(Keyboard keyboard)
+{
+// /*
+//   Safety checks that stops the student program when any of the following cases are violated/detected:
+//   - u (34) - Start the motors
+//   - p (33) - Pause the motors
+//   - c (35) - Calibrate 
+// */
+    // Update joystick values
+    joy_picth = keyboard.pitch;
+    joy_roll = keyboard.roll;
+    joy_yaw = keyboard.yaw;
+    joy_thrust = keyboard.thrust;
+    joy_keypress = keyboard.keypress;
+    sequence_num = keyboard.sequence_num;
+
+    // desired_pitch = 
+    // desired_roll = 
+    // desired_yaw = 
+    // thrust = (JOY_NEUTRAL)
+
+    // ROLL_MAX
+}
 //gcc -o spin spin.cpp -lwiringPi -lm
 void init_pwm()
 {
