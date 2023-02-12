@@ -37,18 +37,18 @@
 #define LED0_OFF_H       0x9		
 #define LED_MULTIPLYER   4
 #define NEUTRAL_THRUST   1250
-#define P_PITCH          0 // 13 // 13 // 10 // 5
-#define D_PITCH          0 // 1.75 //3 // 3 // 522
-#define I_PITCH          0 // 0.075 // 0.05
+#define P_PITCH          13 // 13 // 10 // 5
+#define D_PITCH          1.75 //3 // 3 // 522
+#define I_PITCH          0.075 // 0.05
 #define MAX_PITCH_I      100 // 75 //50 
-#define P_ROLL           0 // 13
-#define D_ROLL           0 // 1.75
-#define I_ROLL           0 // 0.075
+#define P_ROLL           13
+#define D_ROLL           1.75
+#define I_ROLL           0.075
 #define MAX_ROLL_I       100
 #define P_YAW            2 // 1 //0.5 // 2 // 7 // 13
 #define PITCH_MAX        15 // Degrees
 #define ROLL_MAX         15 // Degrees
-// #define YAW_MAX
+#define YAW_MAX          100 //5 // DPS
 #define JOY_NEUTRAL      128
 #define JOY_HIGH         240
 #define JOY_LOW          16
@@ -101,7 +101,6 @@ void trap(int signal);
 void safety_check(Keyboard keyboard);
 // void keyboard_controls(Keyboard keyboard);
 void joystick_control(Keyboard keyboard);
-
 void get_joystick(Keyboard keyboard);
 void init_pwm();
 void init_motor(uint8_t channel);
@@ -150,7 +149,7 @@ float desired_roll = 0.0;
 float desired_yaw_velocity = 0.0;
 float yaw_error_velocity;
 // Joystick variables
-int joy_picth = 0;
+int joy_pitch = 0;
 int joy_roll = 0;
 int joy_yaw = 0;
 int joy_thrust = 0;
@@ -159,7 +158,6 @@ int sequence_num = 0;
 
 // Flags
 int Flag_pause = 1;
-
 
 Keyboard* shared_memory;
 int run_program=1;
@@ -193,7 +191,7 @@ int main (int argc, char *argv[])
     // file_p = fopen("W4M4.csv", "w+");
     // file_p = fopen("W5M2_PID_pitch.csv", "w+");
     // file_p = fopen("W5M3_Desired_Roll.csv", "w+");
-    file_p = fopen("W5M5_Zero_Yaw_Velocity.csv", "w+");
+    // file_p = fopen("W5M5_Zero_Yaw_Velocity.csv", "w+");
 
     while(run_program==1)
     { 
@@ -219,15 +217,15 @@ int main (int argc, char *argv[])
       // fprintf(file_p, "%d, %d, %f, %f, %f\n", pwm_0, pwm_1,  pitch_angle*(20), temp_pitch*20, filtered_pitch*20);
       // fprintf(file_p, "%f, %f\n", filtered_pitch, desired_pitch);
       // fprintf(file_p, "%f, %f\n", filtered_roll, desired_roll);
-    //   fprintf(file_p, "%d, %d, %d, %d, %f,\n", pwm_0, pwm_1, pwm_2, pwm_3, imu_data[2]*30); // yaw P controller
+    //   fprintf(file_p, "%d, %d, %d, %d, %f,\n", pwm_0, pwm_1, pwm_2, pwm_3, imu_data[2]*15); // yaw P controller
       
 
       // to refresh values from shared memory first
       Keyboard keyboard=*shared_memory;
       safety_check(keyboard);
-    //   keyboard_controls(keyboard);
-    joystick_control(keyboard);
-    get_joystick(keyboard);
+      //   keyboard_controls(keyboard);
+      joystick_control(keyboard);
+      get_joystick(keyboard);
 
       if (Flag_pause == 0) // Pause motors
       {
@@ -236,21 +234,21 @@ int main (int argc, char *argv[])
       }
 
       // set_PWM(0,1100);
-      // set_PWM(1,1100); 
+      // set_PWM(1,1100);
       // set_PWM(2,1100);
       // set_PWM(3,1100);
 
     //   printf("keypress: %d  pitch: %d  roll: %d  yaw: %d  thrust: %d  sequence_num: %d\n", keyboard.keypress, keyboard.pitch, keyboard.roll, keyboard.yaw, keyboard.thrust, keyboard.sequence_num);
       // printf("key_press: %d  heartbeat: %d  version: %d\n", keyboard.key_press, keyboard.heartbeat, keyboard.version);
     //   printf("pwm_0: %d  pwm_1: %d  pwm_2: %d  pwm_3: %d  pitch_error: %f run = %d\n", pwm_0, pwm_1, pwm_2, pwm_3, pitch_error, run_program);
-    printf("desired_thrust: %f", desired_thrust);
+    // printf("desired_thrust: %f", desired_thrust);
       // printf("pitch_error_I: %5.1f  Filtered_pitch: %5.1f  pitch_error: %5.1f \n", pitch_error_I, filtered_pitch, pitch_error);
       // printf("Filtered_pitch: %5.1f  desired_pitch: %5.1f \n", filtered_pitch, desired_pitch);
       // printf("Filtered_roll: %5.1f  desired_roll: %5.1f \n", filtered_roll, desired_roll);
     }
 
     // Save values to CSV
-    fclose(file_p);
+    // fclose(file_p);
 
     // Kill all motors
     printf("\n Killing Motors! \n"); 
@@ -568,7 +566,7 @@ void safety_check(Keyboard keyboard) // Joystick
     hearbeat_prev = keyboard.sequence_num;
     time_prev_heartbeat = time_curr_heartbeat;
   }
-  else if (passed_time>0.25)
+  else if (passed_time>0.5) // TODO was 0.25
   { // If the previous heartbeat is the same as the current heartbeat and 0.25s has passed
     // Stop the student from executing.
     printf("Keyboard timedout! (Heartbeat)");
@@ -599,7 +597,7 @@ void pid_update()
   pitch_error_I += pitch_error*I_PITCH;
 
   // Calculate roll error
-  roll_error = desired_roll - filtered_roll;
+  roll_error = -(desired_roll - filtered_roll);
   roll_error_I += roll_error*I_ROLL;
 
   // Calculate yaw error
@@ -624,17 +622,16 @@ void pid_update()
     roll_error_I = -MAX_ROLL_I;
   }
 
-  // // PID - Controller for pitch
-  // pwm_0 = thrust - pitch_error*P_pitch + imu_data[0]*D_pitch - pitch_error_I;
-  // pwm_3 = pwm_0;
-  // pwm_1 = thrust + pitch_error*P_pitch - imu_data[0]*D_pitch + pitch_error_I;
-  // pwm_2 = pwm_1;
-
   // PID - Controller for Pitch and Roll
+  // P - Controller for Yaw
   pwm_0 = desired_thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I + yaw_error_velocity*P_YAW;
   pwm_1 = desired_thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I - yaw_error_velocity*P_YAW;
   pwm_2 = desired_thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I + yaw_error_velocity*P_YAW;
   pwm_3 = desired_thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I - yaw_error_velocity*P_YAW;
+//   pwm_0 = desired_thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I + yaw_error_velocity*P_YAW;
+//   pwm_1 = desired_thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I - yaw_error_velocity*P_YAW;
+//   pwm_2 = desired_thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I + yaw_error_velocity*P_YAW;
+//   pwm_3 = desired_thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I - yaw_error_velocity*P_YAW;
 
   // Limit PWM signal at 1000 - 1300s
   if (pwm_0 > PWM_MAX)
@@ -862,23 +859,21 @@ void joystick_control(Keyboard keyboard)
 void get_joystick(Keyboard keyboard)
 {
 // /*
-//   Safety checks that stops the student program when any of the following cases are violated/detected:
-//   - u (34) - Start the motors
-//   - p (33) - Pause the motors
-//   - c (35) - Calibrate 
+//   Update global variables for the joystick
 // */
     // Update joystick values
-    joy_picth = keyboard.pitch;
+    joy_pitch = keyboard.pitch;
     joy_roll = keyboard.roll;
     joy_yaw = keyboard.yaw;
     joy_thrust = keyboard.thrust;
     joy_keypress = keyboard.keypress;
     sequence_num = keyboard.sequence_num;
 
-    // desired_pitch = 
-    // desired_roll = 
-    // desired_yaw = 
-    desired_thrust = (float)((PWM_MAX - PWM_OFF)/(JOY_HIGH - JOY_LOW)*joy_thrust);
+    desired_pitch = ((float)(2.0 * PITCH_MAX)/(JOY_HIGH - JOY_LOW))*(joy_pitch-128);
+    desired_roll = ((float)(2.0 * ROLL_MAX)/(JOY_HIGH - JOY_LOW))*(joy_roll-128);
+    desired_yaw_velocity = ((float)(2.0 * YAW_MAX)/(JOY_HIGH - JOY_LOW))*(joy_yaw-128);
+    desired_thrust = ((float)(PWM_MAX - PWM_OFF)/(JOY_HIGH - JOY_LOW))*(joy_thrust-128) + NEUTRAL_THRUST;
+    printf("desired thrust: %f  desired_pitch: %f  desired_roll: %f  desired_yaw_velocity: %f  heartbeat: %d\n", desired_thrust, desired_pitch, desired_roll, desired_yaw_velocity, sequence_num);
 }
 //gcc -o spin spin.cpp -lwiringPi -lm
 void init_pwm()
