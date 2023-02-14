@@ -597,7 +597,7 @@ void pid_update()
   pitch_error_I += pitch_error*I_PITCH;
 
   // Calculate roll error
-  roll_error = -(desired_roll - filtered_roll);
+  roll_error = desired_roll - filtered_roll;
   roll_error_I += roll_error*I_ROLL;
 
   // Calculate yaw error
@@ -870,7 +870,7 @@ void get_joystick(Keyboard keyboard)
     sequence_num = keyboard.sequence_num;
 
     desired_pitch = ((float)(2.0 * PITCH_MAX)/(JOY_HIGH - JOY_LOW))*(joy_pitch-128);
-    desired_roll = ((float)(2.0 * ROLL_MAX)/(JOY_HIGH - JOY_LOW))*(joy_roll-128);
+    desired_roll = -((float)(2.0 * ROLL_MAX)/(JOY_HIGH - JOY_LOW))*(joy_roll-128);
     desired_yaw_velocity = ((float)(2.0 * YAW_MAX)/(JOY_HIGH - JOY_LOW))*(joy_yaw-128);
     desired_thrust = ((float)(PWM_MAX - PWM_OFF)/(JOY_HIGH - JOY_LOW))*(joy_thrust-128) + NEUTRAL_THRUST;
     printf("desired thrust: %f  desired_pitch: %f  desired_roll: %f  desired_yaw_velocity: %f  heartbeat: %d\n", desired_thrust, desired_pitch, desired_roll, desired_yaw_velocity, sequence_num);
