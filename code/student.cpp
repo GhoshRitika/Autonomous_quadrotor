@@ -27,8 +27,8 @@
 #define MAX_GYRO_RATE    300   // deg/s
 #define MAX_ROLL_ANGLE   45.0  // deg
 #define MAX_PITCH_ANGLE  45.0  // deg
-#define PWM_MAX          1500
-#define PWM_OFF          1000
+#define PWM_MAX          1900
+#define PWM_OFF          1000 // DO NOT CHANGE!!!!!!!!!!! OR SET KILL TO 1000
 #define frequency        25000000.0
 #define LED0             0x6			
 #define LED0_ON_L        0x6		
@@ -36,18 +36,18 @@
 #define LED0_OFF_L       0x8		
 #define LED0_OFF_H       0x9		
 #define LED_MULTIPLYER   4
-#define NEUTRAL_THRUST   1250
-#define P_PITCH          13 // 13 // 10 // 5
-#define D_PITCH          1.75 //3 // 3 // 522
+#define NEUTRAL_THRUST   1400 // 1350 // 1450 // 1500
+#define P_PITCH          5 // 7 // 6 // 5 // 13 // 13 // 10 // 5
+#define D_PITCH          0.7 // 1.75 //3 // 3 // 522
 #define I_PITCH          0.075 // 0.05
 #define MAX_PITCH_I      100 // 75 //50 
-#define P_ROLL           13
-#define D_ROLL           1.75
+#define P_ROLL           5 // 7 // 6 // 5 // 15 // 9 // 13
+#define D_ROLL           0.7 // 0.6 // 0.8 // 1.75 // 1.0 // 1.2 // 1.75
 #define I_ROLL           0.075
 #define MAX_ROLL_I       100
 #define P_YAW            2 // 1 //0.5 // 2 // 7 // 13
-#define PITCH_MAX        15 // Degrees
-#define ROLL_MAX         15 // Degrees
+#define PITCH_MAX        10 // 8 // 11 // 9 // 10 // 15 // Degrees
+#define ROLL_MAX         10 // 8 // 11 // 9 // 15 // Degrees
 #define YAW_MAX          100 //5 // DPS
 #define JOY_NEUTRAL      128
 #define JOY_HIGH         240
@@ -208,8 +208,7 @@ int main (int argc, char *argv[])
       // printf(" Filtered pitch: %10.5f, Filtered roll: %10.5f\n", filtered_pitch, filtered_roll);
       
       // Save values to CSV
-      // temp_pitch += pitch_gyro_delta;
-      // temp_roll += roll_gyro_delta;
+      // temp_pitch += pitch_gyro_delta;P_ROLL
       // fprintf(file_p, "%f, %f, %f,\n", temp_pitch, pitch_angle, filtered_pitch);
       // fprintf(file_p, "%f, %f, %f\n", temp_roll, roll_angle, filtered_roll);
       // fprintf(file_p, "%d, %d, %f, %f,\n", pwm_0, pwm_1, pitch_angle*(20), filtered_pitch*20);
@@ -570,6 +569,7 @@ void safety_check(Keyboard keyboard) // Joystick
   { // If the previous heartbeat is the same as the current heartbeat and 0.25s has passed
     // Stop the student from executing.
     printf("Keyboard timedout! (Heartbeat)");
+    printf("Heartbeat_prev  %d  Current heart %d  passed_time %f", hearbeat_prev, keyboard.sequence_num, passed_time);
     run_program=0;
   }
 
