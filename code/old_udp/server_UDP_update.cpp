@@ -92,25 +92,7 @@ int main() {
 	buffer[n] = '\0';
  
  
-  while (read(joy_fd, &js, sizeof(struct js_event))>0)
-  {
-
-	switch(js.type &~JS_EVENT_INIT)
-	{
-		case JS_EVENT_AXIS:
-			axis[js.number]=js.value;
-      //heartbeat++;
-			//printf("event\n\r");
-		break;
-		case JS_EVENT_BUTTON:
-			button [js.number]=js.value;      
-     // heartbeat++;
-		break;
-    default :
-    break;
-  }
- }
- /*
+ 
         //joystick code
   read(joy_fd, &js, sizeof(struct js_event));
 
@@ -127,7 +109,7 @@ int main() {
 		break;
     default :
     break;
-	}*/
+	}
   int a=-axis[1]/290+128;	
 	int b=axis[0]/290+128;
 	int c=axis[3]/290+128;	
@@ -136,7 +118,7 @@ int main() {
 	int f=(int)button[1]+1;	
 	int g=(int)button[2]+1;	
 	int h=(int)button[3]+1;	
-        snprintf(sendBuff, sizeof(sendBuff), "%c%c%c%c%c%c%c%c%c\r\n ", a,b,c,d,e,f,g,h,heartbeat++);
+        snprintf(sendBuff, sizeof(sendBuff), "%c%c%c%c%c%c%c%c%c\r\n ", a,b,c,d,e,f,g,h,heartbeat);
 		
 		
   //int a=-axis[1]/290+128;	

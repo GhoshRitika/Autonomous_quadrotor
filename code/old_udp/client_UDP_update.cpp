@@ -7,10 +7,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
-
-#include <sys/time.h>
 	
-#include <time.h>
 #include <sys/shm.h>
 
 #define PORT	 8080
@@ -28,7 +25,7 @@
   int sequence_num;
 };
 
-struct timespec te;
+
 // Driver code
 int main(int argc, char *argv[]) {
 	int sockfd;
@@ -88,39 +85,14 @@ int main(int argc, char *argv[]) {
 	
 	int n, len;
  char recvBuff[10];
-  long time1;
-  long time2;
 	while(1)
  {
-
-  //get current time in nanoseconds
-  timespec_get(&te,TIME_UTC);
-  time2=te.tv_nsec;
- 
-  float time_diff;
-  time_diff=time2-time1;
-  //check for rollover
-  if(time_diff<=0)
-  {
-    time_diff+=1000000000;
-  }
-  //convert to seconds
-  time_diff=time_diff/1000000000;
- //if(true)
-  if(time_diff>0.03)
-  {
-  
-    	sendto(sockfd, (const char *)hello, strlen(hello),MSG_CONFIRM, (const struct sockaddr *) &servaddr,	sizeof(servaddr));
-    	//printf("reqeust sent.\n");
-    			
-    	n = recvfrom(sockfd, (char *)recvBuff, MAXLINE,	MSG_WAITALL, (struct sockaddr *) &servaddr,	(socklen_t*)&len);
-    	recvBuff[n] = '\0';
-     
-      
-       time1=time2;
-      //printf("time diff=%f\n\r",time_diff);
-      
-	printf("time update =%f Data rx size %d : %d %d %d %d %d %d %d %d %d  \n",time_diff, sizeof(recvBuff),recvBuff[0],recvBuff[1],recvBuff[2],recvBuff[3],recvBuff[4],recvBuff[5],recvBuff[6],recvBuff[7],recvBuff[8]);
+	sendto(sockfd, (const char *)hello, strlen(hello),MSG_CONFIRM, (const struct sockaddr *) &servaddr,	sizeof(servaddr));
+	//printf("reqeust sent.\n");
+			
+	n = recvfrom(sockfd, (char *)recvBuff, MAXLINE,	MSG_WAITALL, (struct sockaddr *) &servaddr,	(socklen_t*)&len);
+	recvBuff[n] = '\0';
+	printf("reply receieved size %d : %d %d %d %d %d %d %d %d %d\n", sizeof(recvBuff),recvBuff[0],recvBuff[1],recvBuff[2],recvBuff[3],recvBuff[4],recvBuff[5],recvBuff[6],recvBuff[7],recvBuff[8]);
  
  
      thrust=recvBuff[0];
@@ -130,22 +102,22 @@ int main(int argc, char *argv[]) {
 			if(recvBuff[4]>1)
 			{
 				shared_memory->keypress=32;
-				//printf("key kill pressed\n\r");
+				printf("key kill pressed\n\r");
 			}
 			else if(recvBuff[5]>1)
 			{
 				shared_memory->keypress=33;
-			//	printf("key pause pressed\n\r");
+				printf("key pause pressed\n\r");
 			}
 			else if(recvBuff[6]>1)
 			{
 				shared_memory->keypress=34;
-			//	printf("key un- pause pressed\n\r");
+				printf("key un- pause pressed\n\r");
 			}
 			else if(recvBuff[7]>1)
 			{
 				shared_memory->keypress=35;
-			//	printf("calibration pressed\n\r");
+				printf("calibration pressed\n\r");
 			}
 			else//no key press
 			{
@@ -159,8 +131,8 @@ int main(int argc, char *argv[]) {
            
             shared_memory->sequence_num=recvBuff[8];
             
-     }   
-  //usleep(100000);
+            
+  usleep(10000);
 	}
 	close(sockfd);
 	shmdt (shared_memory);

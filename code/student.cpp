@@ -46,12 +46,17 @@
 #define I_ROLL           0.075
 #define MAX_ROLL_I       100
 #define P_YAW            2 // 1 //0.5 // 2 // 7 // 13
-#define PITCH_MAX        10 // 8 // 11 // 9 // 10 // 15 // Degrees
-#define ROLL_MAX         10 // 8 // 11 // 9 // 15 // Degrees
+#define PITCH_MAX        7 // 10 // 8 // 11 // 9 // 10 // 15 // Degrees
+#define ROLL_MAX         7 // 10 // 8 // 11 // 9 // 15 // Degrees
 #define YAW_MAX          100 //5 // DPS
 #define JOY_NEUTRAL      128
 #define JOY_HIGH         240
 #define JOY_LOW          16
+
+
+// Max gyro - 400
+// P - 5
+// D - 0.5
 
 
 // Pitch PID values
@@ -206,6 +211,7 @@ int main (int argc, char *argv[])
       
 
       // printf(" Filtered pitch: %10.5f, Filtered roll: %10.5f\n", filtered_pitch, filtered_roll);
+      
       
       // Save values to CSV
       // temp_pitch += pitch_gyro_delta;P_ROLL
