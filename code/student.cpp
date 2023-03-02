@@ -100,6 +100,14 @@ struct Keyboard {
 
 //declare global struct
 Position local_p;
+
+//now you can use the vive sensor values: 
+//   local_p.version
+//   local_p.x
+//   local_p.y
+//   local_p.z
+//   local_p.yaw
+
  
 int setup_imu();
 void calibrate_imu();      
@@ -115,6 +123,7 @@ void init_pwm();
 void init_motor(uint8_t channel);
 void set_PWM( uint8_t channel, float time_on_us);
 void pid_update();
+void safety_check_vive(Position local_p);
 
 //global variables
 int imu;
@@ -129,9 +138,14 @@ long time_curr;
 long time_prev;
 struct timespec te;
 struct timespec t_heartbeat;
+struct timespec te_vive;
+struct timespec t_heartbeat_vive;
 long time_curr_heartbeat;
 long time_prev_heartbeat = 0.0;
 int hearbeat_prev = 0;
+long time_curr_heartbeat_vive;
+long time_prev_heartbeat_vive = 0.0;
+int hearbeat_prev_vive = 0;
 float yaw=0.0;
 float pitch_angle=0.0;
 float roll_angle=0.0;
@@ -198,11 +212,6 @@ int main (int argc, char *argv[])
     // file_p = fopen("common_filter.csv", "w+");
     // float temp_pitch = 0.0;
     // float temp_roll = 0.0;
-    // file_p = fopen("Pitch_P_controller.csv", "w+");
-    // file_p = fopen("W4M3.csv", "w+"); 
-    // file_p = fopen("W4M4.csv", "w+");
-    // file_p = fopen("W5M2_PID_pitch.csv", "w+");
-    // file_p = fopen("W5M3_Desired_Roll.csv", "w+");
     // file_p = fopen("W5M5_Zero_Yaw_Velocity.csv", "w+");
 
     while(run_program==1)
@@ -210,43 +219,25 @@ int main (int argc, char *argv[])
 
       //run this command at the start of the while(1) loop to refresh vive data
       local_p=*position;  
-     
-      //now you can use the vive sensor values: 
-    //   local_p.version
-    //   local_p.x
-    //   local_p.y
-    //   local_p.z
-    //   local_p.yaw
 
       read_imu();
       update_filter();
-      //Introducing 100millisec delay to allow the displayed data to be more readable
-      // delay(100);
+
       // printf("\n Gyro(xyz) = %10.5f %10.5f %10.5f     Pitch = %10.5f Roll = %10.5f", imu_data[0], imu_data[1], imu_data[2], pitch_angle, roll_angle);
-      
-      // printf("\n Pitch: %10.5f, Filtered pitch: %10.5f, pitch_gyro_delta: %10.5f , gyro x: %10.5f ", pitch_angle, filtered_pitch, pitch_gyro_delta, imu_data[0]);
-      // printf("\n Roll: %10.5f, Filtered roll: %10.5f, roll_gyro_delta: %10.5f , gyro y: %10.5f ", roll_angle, filtered_roll, roll_gyro_delta, imu_data[1]);
-      
 
       // printf(" Filtered pitch: %10.5f, Filtered roll: %10.5f\n", filtered_pitch, filtered_roll);
+      printf(" Vive x: %10.5f  y: %10.5f  z: %10.5f  yaw: %10.5f  version: %d \n", local_p.x, local_p.y, local_p.z, local_p.yaw, local_p.version);
       
       
       // Save values to CSV
-      // temp_pitch += pitch_gyro_delta;P_ROLL
-      // fprintf(file_p, "%f, %f, %f,\n", temp_pitch, pitch_angle, filtered_pitch);
-      // fprintf(file_p, "%f, %f, %f\n", temp_roll, roll_angle, filtered_roll);
-      // fprintf(file_p, "%d, %d, %f, %f,\n", pwm_0, pwm_1, pitch_angle*(20), filtered_pitch*20);
-      // fprintf(file_p, "%d, %d, %f, %f,\n", pwm_0, pwm_1, filtered_pitch*20, imu_data[0]*20);
-      // fprintf(file_p, "%d, %d, %f, %f, %f\n", pwm_0, pwm_1,  pitch_angle*(20), temp_pitch*20, filtered_pitch*20);
-      // fprintf(file_p, "%f, %f\n", filtered_pitch, desired_pitch);
-      // fprintf(file_p, "%f, %f\n", filtered_roll, desired_roll);
-    //   fprintf(file_p, "%d, %d, %d, %d, %f,\n", pwm_0, pwm_1, pwm_2, pwm_3, imu_data[2]*15); // yaw P controller
-      
+      //   fprintf(file_p, "%d, %d, %d, %d, %f,\n", pwm_0, pwm_1, pwm_2, pwm_3, imu_data[2]*15); // yaw P controller
 
       // to refresh values from shared memory first
       Keyboard keyboard=*shared_memory;
       safety_check(keyboard);
-      //   keyboard_controls(keyboard);
+      safety_check_vive(local_p);
+
+      //   keyboard_controls(keyboard);s
       joystick_control(keyboard);
       get_joystick(keyboard);
 
@@ -256,18 +247,6 @@ int main (int argc, char *argv[])
         pid_update();
       }
 
-      // set_PWM(0,1100);
-      // set_PWM(1,1100);
-      // set_PWM(2,1100);
-      // set_PWM(3,1100);
-
-    //   printf("keypress: %d  pitch: %d  roll: %d  yaw: %d  thrust: %d  sequence_num: %d\n", keyboard.keypress, keyboard.pitch, keyboard.roll, keyboard.yaw, keyboard.thrust, keyboard.sequence_num);
-      // printf("key_press: %d  heartbeat: %d  version: %d\n", keyboard.key_press, keyboard.heartbeat, keyboard.version);
-    //   printf("pwm_0: %d  pwm_1: %d  pwm_2: %d  pwm_3: %d  pitch_error: %f run = %d\n", pwm_0, pwm_1, pwm_2, pwm_3, pitch_error, run_program);
-    // printf("desired_thrust: %f", desired_thrust);
-      // printf("pitch_error_I: %5.1f  Filtered_pitch: %5.1f  pitch_error: %5.1f \n", pitch_error_I, filtered_pitch, pitch_error);
-      // printf("Filtered_pitch: %5.1f  desired_pitch: %5.1f \n", filtered_pitch, desired_pitch);
-      // printf("Filtered_roll: %5.1f  desired_roll: %5.1f \n", filtered_roll, desired_roll);
     }
 
     // Save values to CSV
@@ -503,47 +482,47 @@ void trap(int signal)
   run_program=0;
 }
 
-// void safety_check(Keyboard keyboard)
-// {
-// /*
-//   Safety checks that stops the student program when any of the following cases are violated/detected:
-//   – Any gyro rate > 300 degrees/sec
-//   – Roll angle > 45 or <-45
-//   – Pitch angle >45 or <-45
-//   – Keyboard press of space
-//   – Keyboard timeout (Heart beat does not update in 0.25 seconds)
-// */
+void safety_check_vive(Position local_p) // Vive
+{
+/*
+  Safety checks that stops the student program when any of the following cases are violated/detected:
+  – X !> +-500
+  – Y !> +-500
+  – Yaw !> +-90Deg (Radians 1.57079)
+  – Vive timeout - .version (Heart beat does not update in 0.5 seconds)
+*/
 
-//   //get current time in nanoseconds
-//   timespec_get(&t_heartbeat,TIME_UTC);
-//   time_curr_heartbeat = t_heartbeat.tv_nsec;
-//   //compute time since last execution
-//   double passed_time = time_curr_heartbeat-time_prev_heartbeat;
+  //get current time in nanoseconds
+  timespec_get(&t_heartbeat_vive,TIME_UTC);
+  time_curr_heartbeat_vive = t_heartbeat_vive.tv_nsec;
+  //compute time since last execution
+  double passed_time_vive = time_curr_heartbeat_vive-time_prev_heartbeat_vive;
 
-//   //check for rollover
-//   if(passed_time<=0.0)
-//   {
-//     passed_time+=1000000000.0;
-//   }
+  //check for rollover
+  if(passed_time_vive<=0.0)
+  {
+    passed_time_vive+=1000000000.0;
+  }
 
-//   //convert to seconds
-//   passed_time=passed_time/1000000000.0;
+  //convert to seconds
+  passed_time_vive=passed_time_vive/1000000000.0;
 
-//   if (hearbeat_prev != keyboard.heartbeat)
-//   { // Reset previous heartbeat time stamp if a new heartbeat is detected.
-//     hearbeat_prev = keyboard.heartbeat;
-//     time_prev_heartbeat = time_curr_heartbeat;
-//   }
-//   else if (passed_time>0.25)
-//   { // If the previous heartbeat is the same as the current heartbeat and 0.25s has passed
-//     // Stop the student from executing.
-//     printf("Keyboard timedout! (Heartbeat)");
-//     run_program=0;
-//   }
+  if (hearbeat_prev_vive != local_p.version)
+  { // Reset previous heartbeat time stamp if a new heartbeat is detected.
+    hearbeat_prev_vive = local_p.version;
+    time_prev_heartbeat_vive = time_curr_heartbeat_vive;
+  }
+  else if (passed_time_vive>0.5)
+  { // If the previous heartbeat is the same as the current heartbeat and 0.25s has passed
+    // Stop the student from executing.
+    printf("Vive timedout! (Heartbeat)");
+    printf("Heartbeat_prev  %d  Current version %d  passed_time_vive %f", hearbeat_prev_vive, local_p.version, passed_time_vive);
+    run_program=0;
+  }
 
 //   if (keyboard.keypress == 32)
-//   { // If the keyboards space bar is pressed, then stop the student code.
-//     printf("\n Space bar was pressed!");
+//   { // If the joystick A button is pressed, then stop the student code.
+//     printf("\n A button was pressed!");
 //     run_program=0;
 //   }
 //   else if (abs(filtered_pitch)>MAX_PITCH_ANGLE || abs(filtered_roll)>MAX_ROLL_ANGLE)
@@ -556,7 +535,7 @@ void trap(int signal)
 //     printf("\n Gyro rate exceeds maximum limit: x: %10.5f  y: %10.5f  z: %10.5f", imu_data[0], imu_data[1], imu_data[2]);
 //     run_program=0;
 //   }
-// }
+}
 
 void safety_check(Keyboard keyboard) // Joystick
 {
@@ -701,98 +680,6 @@ void pid_update()
   set_PWM(3,pwm_3);
 }
 
-// void keyboard_controls(Keyboard keyboard)
-// {
-// /*
-//   Safety checks that stops the student program when any of the following cases are violated/detected:
-//   - u (117) - Start the motors
-//   - p (112) - Pause the motors
-//   - c (99) - Calibrate 
-//   - + (43) - Increase thrust
-//   - - (45) - Decrease thrust
-//   - w (119) - Increase desired pitch
-//   - s (115) - Decrease desired pitch
-//   - a (97) - Increase roll left
-//   - d (100) - Decrease roll right
-// */
-//   if (keyboard.key_press == 43 && prev_version != keyboard.version)
-//   {
-//     thrust += 5;
-//     prev_version = keyboard.version;
-//   }
-//   else if (keyboard.key_press == 45 && prev_version != keyboard.version)
-//   {
-//     thrust -= 5;
-//     prev_version = keyboard.version;
-//   }
-//   else if (keyboard.key_press == 112 && prev_version != keyboard.version)
-//   {
-//     Flag_pause = 1;
-//     printf("\n Pause motors \n\r");
-//     // Kill all motors
-//     set_PWM(0,PWM_OFF);
-//     set_PWM(1,PWM_OFF); 
-//     set_PWM(2,PWM_OFF);
-//     set_PWM(3,PWM_OFF);
-//     prev_version = keyboard.version;
-//   }
-//   else if (keyboard.key_press == 99 && prev_version != keyboard.version)
-//   {
-//     printf("\n Calibrate IMU \n\r");
-//     // Kill all motors
-//     set_PWM(0,PWM_OFF);
-//     set_PWM(1,PWM_OFF); 
-//     set_PWM(2,PWM_OFF);
-//     set_PWM(3,PWM_OFF);
-//     delay(100);
-//     // Reset all calibration values
-//     x_gyro_calibration = 0.0;
-//     y_gyro_calibration = 0.0;
-//     z_gyro_calibration = 0.0;
-//     roll_calibration = 0.0;
-//     pitch_calibration = 0.0;
-//     accel_z_calibration = 0.0;
-//     // Calibrate IMU
-//     calibrate_imu();
-//     // Set integral windup back to 0
-//     pitch_error_I = 0.0;
-//     roll_error_I = 0.0;
-//     desired_pitch = 0.0;
-//     desired_roll = 0.0;
-//     thrust = NEUTRAL_THRUST;
-//     prev_version = keyboard.version;
-//     printf("\n Done calibrating IMU \n\r");
-//   }
-//   else if (keyboard.key_press == 117 && prev_version != keyboard.version)
-//   {
-//     printf("\n Unpause motors \n\r");
-//     Flag_pause = 0;
-//     // thrust = NEUTRAL_THRUST;
-//     prev_version = keyboard.version;
-//   }
-//   // Pitch
-//   else if (keyboard.key_press == 119 && prev_version != keyboard.version)
-//   {
-//     desired_pitch += 1.0;
-//     prev_version = keyboard.version;
-//   }
-//   else if (keyboard.key_press == 115 && prev_version != keyboard.version)
-//   {
-//     desired_pitch -= 1.0;
-//     prev_version = keyboard.version;
-//   }
-//   // ROLL
-//   else if (keyboard.key_press == 97 && prev_version != keyboard.version)
-//   {
-//     desired_roll += 1.0;
-//     prev_version = keyboard.version;
-//   }
-//   else if (keyboard.key_press == 100 && prev_version != keyboard.version)
-//   {
-//     desired_roll -= 1.0;
-//     prev_version = keyboard.version;
-//   }
-// }
 
 void joystick_control(Keyboard keyboard)
 {
@@ -985,3 +872,153 @@ void set_PWM( uint8_t channel, float time_on_us)
   	wiringPiI2CWriteReg16(pwm, LED0_OFF_L + LED_MULTIPLYER * channel,off_value);
   }
 }
+
+
+// void safety_check(Keyboard keyboard)
+// {
+// /*
+//   Safety checks that stops the student program when any of the following cases are violated/detected:
+//   – Any gyro rate > 300 degrees/sec
+//   – Roll angle > 45 or <-45
+//   – Pitch angle >45 or <-45
+//   – Keyboard press of space
+//   – Keyboard timeout (Heart beat does not update in 0.25 seconds)
+// */
+
+//   //get current time in nanoseconds
+//   timespec_get(&t_heartbeat,TIME_UTC);
+//   time_curr_heartbeat = t_heartbeat.tv_nsec;
+//   //compute time since last execution
+//   double passed_time = time_curr_heartbeat-time_prev_heartbeat;
+
+//   //check for rollover
+//   if(passed_time<=0.0)
+//   {
+//     passed_time+=1000000000.0;
+//   }
+
+//   //convert to seconds
+//   passed_time=passed_time/1000000000.0;
+
+//   if (hearbeat_prev != keyboard.heartbeat)
+//   { // Reset previous heartbeat time stamp if a new heartbeat is detected.
+//     hearbeat_prev = keyboard.heartbeat;
+//     time_prev_heartbeat = time_curr_heartbeat;
+//   }
+//   else if (passed_time>0.25)
+//   { // If the previous heartbeat is the same as the current heartbeat and 0.25s has passed
+//     // Stop the student from executing.
+//     printf("Keyboard timedout! (Heartbeat)");
+//     run_program=0;
+//   }
+
+//   if (keyboard.keypress == 32)
+//   { // If the keyboards space bar is pressed, then stop the student code.
+//     printf("\n Space bar was pressed!");
+//     run_program=0;
+//   }
+//   else if (abs(filtered_pitch)>MAX_PITCH_ANGLE || abs(filtered_roll)>MAX_ROLL_ANGLE)
+//   { // If the pitch or roll angles are larger than the max allowable angle, then stop the student code.
+//     printf("\n Pitch or Roll angle exceeds maximum limit: Pitch: %10.5f  Roll: %10.5f", filtered_pitch, filtered_roll);
+//     run_program=0;
+//   }
+//   else if (abs(imu_data[0])>MAX_GYRO_RATE || abs(imu_data[1])>MAX_GYRO_RATE || abs(imu_data[2])>MAX_GYRO_RATE)
+//   { // If any of the 3 gyro rates are larger than the max allowable gyro rate, then stop the student code.
+//     printf("\n Gyro rate exceeds maximum limit: x: %10.5f  y: %10.5f  z: %10.5f", imu_data[0], imu_data[1], imu_data[2]);
+//     run_program=0;
+//   }
+// }
+
+
+// void keyboard_controls(Keyboard keyboard)
+// {
+// /*
+//   Safety checks that stops the student program when any of the following cases are violated/detected:
+//   - u (117) - Start the motors
+//   - p (112) - Pause the motors
+//   - c (99) - Calibrate 
+//   - + (43) - Increase thrust
+//   - - (45) - Decrease thrust
+//   - w (119) - Increase desired pitch
+//   - s (115) - Decrease desired pitch
+//   - a (97) - Increase roll left
+//   - d (100) - Decrease roll right
+// */
+//   if (keyboard.key_press == 43 && prev_version != keyboard.version)
+//   {
+//     thrust += 5;
+//     prev_version = keyboard.version;
+//   }
+//   else if (keyboard.key_press == 45 && prev_version != keyboard.version)
+//   {
+//     thrust -= 5;
+//     prev_version = keyboard.version;
+//   }
+//   else if (keyboard.key_press == 112 && prev_version != keyboard.version)
+//   {
+//     Flag_pause = 1;
+//     printf("\n Pause motors \n\r");
+//     // Kill all motors
+//     set_PWM(0,PWM_OFF);
+//     set_PWM(1,PWM_OFF); 
+//     set_PWM(2,PWM_OFF);
+//     set_PWM(3,PWM_OFF);
+//     prev_version = keyboard.version;
+//   }
+//   else if (keyboard.key_press == 99 && prev_version != keyboard.version)
+//   {
+//     printf("\n Calibrate IMU \n\r");
+//     // Kill all motors
+//     set_PWM(0,PWM_OFF);
+//     set_PWM(1,PWM_OFF); 
+//     set_PWM(2,PWM_OFF);
+//     set_PWM(3,PWM_OFF);
+//     delay(100);
+//     // Reset all calibration values
+//     x_gyro_calibration = 0.0;
+//     y_gyro_calibration = 0.0;
+//     z_gyro_calibration = 0.0;
+//     roll_calibration = 0.0;
+//     pitch_calibration = 0.0;
+//     accel_z_calibration = 0.0;
+//     // Calibrate IMU
+//     calibrate_imu();
+//     // Set integral windup back to 0
+//     pitch_error_I = 0.0;
+//     roll_error_I = 0.0;
+//     desired_pitch = 0.0;
+//     desired_roll = 0.0;
+//     thrust = NEUTRAL_THRUST;
+//     prev_version = keyboard.version;
+//     printf("\n Done calibrating IMU \n\r");
+//   }
+//   else if (keyboard.key_press == 117 && prev_version != keyboard.version)
+//   {
+//     printf("\n Unpause motors \n\r");
+//     Flag_pause = 0;
+//     // thrust = NEUTRAL_THRUST;
+//     prev_version = keyboard.version;
+//   }
+//   // Pitch
+//   else if (keyboard.key_press == 119 && prev_version != keyboard.version)
+//   {
+//     desired_pitch += 1.0;
+//     prev_version = keyboard.version;
+//   }
+//   else if (keyboard.key_press == 115 && prev_version != keyboard.version)
+//   {
+//     desired_pitch -= 1.0;
+//     prev_version = keyboard.version;
+//   }
+//   // ROLL
+//   else if (keyboard.key_press == 97 && prev_version != keyboard.version)
+//   {
+//     desired_roll += 1.0;
+//     prev_version = keyboard.version;
+//   }
+//   else if (keyboard.key_press == 100 && prev_version != keyboard.version)
+//   {
+//     desired_roll -= 1.0;
+//     prev_version = keyboard.version;
+//   }
+// }
