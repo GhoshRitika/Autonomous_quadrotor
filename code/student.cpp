@@ -46,8 +46,8 @@
 #define I_ROLL           0.075
 #define MAX_ROLL_I       100
 #define P_YAW            2 // 1 //0.5 // 2 // 7 // 13
-#define PITCH_MAX        7 // 10 // 8 // 11 // 9 // 10 // 15 // Degrees
-#define ROLL_MAX         7 // 10 // 8 // 11 // 9 // 15 // Degrees
+#define PITCH_MAX        8 // 10 // 8 // 11 // 9 // 10 // 15 // Degrees
+#define ROLL_MAX         8 // 10 // 8 // 11 // 9 // 15 // Degrees
 #define YAW_MAX          100 //5 // DPS
 #define JOY_NEUTRAL      128
 #define JOY_HIGH         240
