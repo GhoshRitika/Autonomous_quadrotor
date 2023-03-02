@@ -53,6 +53,8 @@
 #define JOY_NEUTRAL      128
 #define JOY_HIGH         240
 #define JOY_LOW          16
+#define VIVE_MAX_XY      500
+#define VIVE_MAX_YAW     1.57079 // 90 Degrees
 
 
 // Max gyro - 400
@@ -178,9 +180,14 @@ int joy_yaw = 0;
 int joy_thrust = 0;
 int joy_keypress = 0;
 int sequence_num = 0;
+// Vive
+float vive_x_desired = 0.0;
+float vive_y_desired = 0.0;
+float vive_yaw_desired = 0.0;
 
 // Flags
 int Flag_pause = 1;
+int Flag_set_vive_desired = 1;
 
 Keyboard* shared_memory;
 int run_program=1;
@@ -196,6 +203,7 @@ int main (int argc, char *argv[])
 
     delay(1000);
 
+
     setup_imu();
     calibrate_imu();
     setup_keyboard();
@@ -208,6 +216,14 @@ int main (int argc, char *argv[])
     //call at start of main loop
     init_shared_memory();
 
+    // local_p=*position;
+
+    // setup_imu();
+    // calibrate_imu();
+    // setup_keyboard();
+    // signal(SIGINT, &trap);
+    // delay(1000);
+
     // Save values to CSV
     // file_p = fopen("common_filter.csv", "w+");
     // float temp_pitch = 0.0;
@@ -215,10 +231,19 @@ int main (int argc, char *argv[])
     // file_p = fopen("W5M5_Zero_Yaw_Velocity.csv", "w+");
 
     while(run_program==1)
-    { 
+    {
 
       //run this command at the start of the while(1) loop to refresh vive data
       local_p=*position;  
+
+      if (Flag_set_vive_desired == 1)
+      {
+          // Save desired X,Y position as current vive X,Y position
+          vive_x_desired = local_p.x;
+          vive_y_desired = local_p.y;
+          vive_yaw_desired = local_p.yaw;
+          Flag_set_vive_desired = 0;
+      }
 
       read_imu();
       update_filter();
@@ -227,8 +252,8 @@ int main (int argc, char *argv[])
 
       // printf(" Filtered pitch: %10.5f, Filtered roll: %10.5f\n", filtered_pitch, filtered_roll);
       printf(" Vive x: %10.5f  y: %10.5f  z: %10.5f  yaw: %10.5f  version: %d \n", local_p.x, local_p.y, local_p.z, local_p.yaw, local_p.version);
-      
-      
+    //   printf(" Vive x_desired: %10.5f  y_desired: %10.5f  yaw_desired: %10.5f\n", vive_x_desired, vive_y_desired, vive_yaw_desired);
+
       // Save values to CSV
       //   fprintf(file_p, "%d, %d, %d, %d, %f,\n", pwm_0, pwm_1, pwm_2, pwm_3, imu_data[2]*15); // yaw P controller
 
@@ -519,6 +544,21 @@ void safety_check_vive(Position local_p) // Vive
     printf("Heartbeat_prev  %d  Current version %d  passed_time_vive %f", hearbeat_prev_vive, local_p.version, passed_time_vive);
     run_program=0;
   }
+  else if (abs(local_p.x - vive_x_desired)> VIVE_MAX_XY)
+  {
+    printf("Vive X location to far %10.5f", local_p.x);
+    run_program=0;
+  }
+  else if (abs(local_p.y - vive_y_desired)> VIVE_MAX_XY)
+  {
+    printf("Vive Y location to far %10.5f", local_p.y);
+    run_program=0;
+  }
+  else if (abs(local_p.yaw - vive_yaw_desired)> VIVE_MAX_YAW)
+  {
+    printf("Vive YAW location greater than max %10.5f", local_p.yaw);
+    run_program=0;
+  }
 
 //   if (keyboard.keypress == 32)
 //   { // If the joystick A button is pressed, then stop the student code.
@@ -734,7 +774,14 @@ void joystick_control(Keyboard keyboard)
     desired_pitch = 0.0;
     desired_roll = 0.0;
     desired_thrust = NEUTRAL_THRUST;
+
+    // Save desired X,Y position as current vive X,Y position
+    vive_x_desired = local_p.x;
+    vive_y_desired = local_p.y;
+    vive_yaw_desired = local_p.yaw;
+
     printf("\n Done calibrating IMU \n\r");
+    printf("\n Done saving desired Vive X,Y position \n\r");
   }
   else if (keyboard.keypress == 34)
   {
@@ -784,7 +831,7 @@ void get_joystick(Keyboard keyboard)
     desired_roll = -((float)(2.0 * ROLL_MAX)/(JOY_HIGH - JOY_LOW))*(joy_roll-128);
     desired_yaw_velocity = ((float)(2.0 * YAW_MAX)/(JOY_HIGH - JOY_LOW))*(joy_yaw-128);
     desired_thrust = ((float)(PWM_MAX - PWM_OFF)/(JOY_HIGH - JOY_LOW))*(joy_thrust-128) + NEUTRAL_THRUST;
-    printf("desired thrust: %f  desired_pitch: %f  desired_roll: %f  desired_yaw_velocity: %f  heartbeat: %d\n", desired_thrust, desired_pitch, desired_roll, desired_yaw_velocity, sequence_num);
+    // printf("desired thrust: %f  desired_pitch: %f  desired_roll: %f  desired_yaw_velocity: %f  heartbeat: %d\n", desired_thrust, desired_pitch, desired_roll, desired_yaw_velocity, sequence_num);
 }
 //gcc -o spin spin.cpp -lwiringPi -lm
 void init_pwm()
