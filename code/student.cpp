@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 #include <curses.h>
 #include <stdlib.h>
+#include "vive.h"
 
 //gcc -o week1 week_1.cpp -lwiringPi -lncurses -lm
 
@@ -96,6 +97,9 @@ struct Keyboard {
   int thrust;
   int sequence_num; // heart
 };
+
+//declare global struct
+Position local_p;
  
 int setup_imu();
 void calibrate_imu();      
@@ -187,6 +191,9 @@ int main (int argc, char *argv[])
     //to refresh values from shared memory first
     Keyboard keyboard=*shared_memory;
 
+    //call at start of main loop
+    init_shared_memory();
+
     // Save values to CSV
     // file_p = fopen("common_filter.csv", "w+");
     // float temp_pitch = 0.0;
@@ -200,6 +207,17 @@ int main (int argc, char *argv[])
 
     while(run_program==1)
     { 
+
+      //run this command at the start of the while(1) loop to refresh vive data
+      local_p=*position;  
+     
+      //now you can use the vive sensor values: 
+    //   local_p.version
+    //   local_p.x
+    //   local_p.y
+    //   local_p.z
+    //   local_p.yaw
+
       read_imu();
       update_filter();
       //Introducing 100millisec delay to allow the displayed data to be more readable
