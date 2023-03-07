@@ -28,7 +28,7 @@
 #define MAX_GYRO_RATE    300   // deg/s
 #define MAX_ROLL_ANGLE   45.0  // deg
 #define MAX_PITCH_ANGLE  45.0  // deg
-#define PWM_MAX          1900
+#define PWM_MAX          1800// 1600// 1900
 #define PWM_OFF          1000 // DO NOT CHANGE!!!!!!!!!!! OR SET KILL TO 1000
 #define frequency        25000000.0
 #define LED0             0x6			
@@ -46,7 +46,8 @@
 #define D_ROLL           0.7 // 0.6 // 0.8 // 1.75 // 1.0 // 1.2 // 1.75
 #define I_ROLL           0.075
 #define MAX_ROLL_I       100
-#define P_YAW            2 // 1 //0.5 // 2 // 7 // 13
+#define P_YAW            3 // 2 // 1 //0.5 // 2 // 7 // 13
+#define P_YAW_VIVE       25 // 35 // 40 // 80 // 100 // 4 // 2
 #define PITCH_MAX        8 // 10 // 8 // 11 // 9 // 10 // 15 // Degrees
 #define ROLL_MAX         8 // 10 // 8 // 11 // 9 // 15 // Degrees
 #define YAW_MAX          100 //5 // DPS
@@ -666,15 +667,15 @@ void pid_update()
   }
 
   // PID - Controller for Pitch and Roll
-  // P - Controller for Yaw
-  pwm_0 = desired_thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I + yaw_error_velocity*P_YAW;
-  pwm_1 = desired_thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I - yaw_error_velocity*P_YAW;
-  pwm_2 = desired_thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I + yaw_error_velocity*P_YAW;
-  pwm_3 = desired_thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I - yaw_error_velocity*P_YAW;
-//   pwm_0 = desired_thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I + yaw_error_velocity*P_YAW;
-//   pwm_1 = desired_thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I - yaw_error_velocity*P_YAW;
-//   pwm_2 = desired_thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I + yaw_error_velocity*P_YAW;
-//   pwm_3 = desired_thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I - yaw_error_velocity*P_YAW;
+//   pwm_0 = desired_thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I + local_p.yaw*P_YAW_VIVE*58;
+//   pwm_1 = desired_thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I - local_p.yaw*P_YAW_VIVE*58;
+//   pwm_2 = desired_thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I + local_p.yaw*P_YAW_VIVE*58;
+//   pwm_3 = desired_thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I - local_p.yaw*P_YAW_VIVE*58;
+
+  pwm_0 = desired_thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I + yaw_error_velocity*P_YAW + local_p.yaw*P_YAW_VIVE*58;
+  pwm_1 = desired_thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I - yaw_error_velocity*P_YAW - local_p.yaw*P_YAW_VIVE*58;
+  pwm_2 = desired_thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I + yaw_error_velocity*P_YAW + local_p.yaw*P_YAW_VIVE*58;
+  pwm_3 = desired_thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I - yaw_error_velocity*P_YAW - local_p.yaw*P_YAW_VIVE*58;
 
   // Limit PWM signal at 1000 - 1300s
   if (pwm_0 > PWM_MAX)
@@ -719,7 +720,6 @@ void pid_update()
   set_PWM(2,pwm_2);
   set_PWM(3,pwm_3);
 }
-
 
 void joystick_control(Keyboard keyboard)
 {
@@ -920,152 +920,3 @@ void set_PWM( uint8_t channel, float time_on_us)
   }
 }
 
-
-// void safety_check(Keyboard keyboard)
-// {
-// /*
-//   Safety checks that stops the student program when any of the following cases are violated/detected:
-//   – Any gyro rate > 300 degrees/sec
-//   – Roll angle > 45 or <-45
-//   – Pitch angle >45 or <-45
-//   – Keyboard press of space
-//   – Keyboard timeout (Heart beat does not update in 0.25 seconds)
-// */
-
-//   //get current time in nanoseconds
-//   timespec_get(&t_heartbeat,TIME_UTC);
-//   time_curr_heartbeat = t_heartbeat.tv_nsec;
-//   //compute time since last execution
-//   double passed_time = time_curr_heartbeat-time_prev_heartbeat;
-
-//   //check for rollover
-//   if(passed_time<=0.0)
-//   {
-//     passed_time+=1000000000.0;
-//   }
-
-//   //convert to seconds
-//   passed_time=passed_time/1000000000.0;
-
-//   if (hearbeat_prev != keyboard.heartbeat)
-//   { // Reset previous heartbeat time stamp if a new heartbeat is detected.
-//     hearbeat_prev = keyboard.heartbeat;
-//     time_prev_heartbeat = time_curr_heartbeat;
-//   }
-//   else if (passed_time>0.25)
-//   { // If the previous heartbeat is the same as the current heartbeat and 0.25s has passed
-//     // Stop the student from executing.
-//     printf("Keyboard timedout! (Heartbeat)");
-//     run_program=0;
-//   }
-
-//   if (keyboard.keypress == 32)
-//   { // If the keyboards space bar is pressed, then stop the student code.
-//     printf("\n Space bar was pressed!");
-//     run_program=0;
-//   }
-//   else if (abs(filtered_pitch)>MAX_PITCH_ANGLE || abs(filtered_roll)>MAX_ROLL_ANGLE)
-//   { // If the pitch or roll angles are larger than the max allowable angle, then stop the student code.
-//     printf("\n Pitch or Roll angle exceeds maximum limit: Pitch: %10.5f  Roll: %10.5f", filtered_pitch, filtered_roll);
-//     run_program=0;
-//   }
-//   else if (abs(imu_data[0])>MAX_GYRO_RATE || abs(imu_data[1])>MAX_GYRO_RATE || abs(imu_data[2])>MAX_GYRO_RATE)
-//   { // If any of the 3 gyro rates are larger than the max allowable gyro rate, then stop the student code.
-//     printf("\n Gyro rate exceeds maximum limit: x: %10.5f  y: %10.5f  z: %10.5f", imu_data[0], imu_data[1], imu_data[2]);
-//     run_program=0;
-//   }
-// }
-
-
-// void keyboard_controls(Keyboard keyboard)
-// {
-// /*
-//   Safety checks that stops the student program when any of the following cases are violated/detected:
-//   - u (117) - Start the motors
-//   - p (112) - Pause the motors
-//   - c (99) - Calibrate 
-//   - + (43) - Increase thrust
-//   - - (45) - Decrease thrust
-//   - w (119) - Increase desired pitch
-//   - s (115) - Decrease desired pitch
-//   - a (97) - Increase roll left
-//   - d (100) - Decrease roll right
-// */
-//   if (keyboard.key_press == 43 && prev_version != keyboard.version)
-//   {
-//     thrust += 5;
-//     prev_version = keyboard.version;
-//   }
-//   else if (keyboard.key_press == 45 && prev_version != keyboard.version)
-//   {
-//     thrust -= 5;
-//     prev_version = keyboard.version;
-//   }
-//   else if (keyboard.key_press == 112 && prev_version != keyboard.version)
-//   {
-//     Flag_pause = 1;
-//     printf("\n Pause motors \n\r");
-//     // Kill all motors
-//     set_PWM(0,PWM_OFF);
-//     set_PWM(1,PWM_OFF); 
-//     set_PWM(2,PWM_OFF);
-//     set_PWM(3,PWM_OFF);
-//     prev_version = keyboard.version;
-//   }
-//   else if (keyboard.key_press == 99 && prev_version != keyboard.version)
-//   {
-//     printf("\n Calibrate IMU \n\r");
-//     // Kill all motors
-//     set_PWM(0,PWM_OFF);
-//     set_PWM(1,PWM_OFF); 
-//     set_PWM(2,PWM_OFF);
-//     set_PWM(3,PWM_OFF);
-//     delay(100);
-//     // Reset all calibration values
-//     x_gyro_calibration = 0.0;
-//     y_gyro_calibration = 0.0;
-//     z_gyro_calibration = 0.0;
-//     roll_calibration = 0.0;
-//     pitch_calibration = 0.0;
-//     accel_z_calibration = 0.0;
-//     // Calibrate IMU
-//     calibrate_imu();
-//     // Set integral windup back to 0
-//     pitch_error_I = 0.0;
-//     roll_error_I = 0.0;
-//     desired_pitch = 0.0;
-//     desired_roll = 0.0;
-//     thrust = NEUTRAL_THRUST;
-//     prev_version = keyboard.version;
-//     printf("\n Done calibrating IMU \n\r");
-//   }
-//   else if (keyboard.key_press == 117 && prev_version != keyboard.version)
-//   {
-//     printf("\n Unpause motors \n\r");
-//     Flag_pause = 0;
-//     // thrust = NEUTRAL_THRUST;
-//     prev_version = keyboard.version;
-//   }
-//   // Pitch
-//   else if (keyboard.key_press == 119 && prev_version != keyboard.version)
-//   {
-//     desired_pitch += 1.0;
-//     prev_version = keyboard.version;
-//   }
-//   else if (keyboard.key_press == 115 && prev_version != keyboard.version)
-//   {
-//     desired_pitch -= 1.0;
-//     prev_version = keyboard.version;
-//   }
-//   // ROLL
-//   else if (keyboard.key_press == 97 && prev_version != keyboard.version)
-//   {
-//     desired_roll += 1.0;
-//     prev_version = keyboard.version;
-//   }
-//   else if (keyboard.key_press == 100 && prev_version != keyboard.version)
-//   {
-//     desired_roll -= 1.0;
-//     prev_version = keyboard.version;
-//   }
-// }
