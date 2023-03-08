@@ -38,16 +38,20 @@
 #define LED0_OFF_H       0x9		
 #define LED_MULTIPLYER   4
 #define NEUTRAL_THRUST   1400 // 1350 // 1450 // 1500
-#define P_PITCH          5 // 7 // 6 // 5 // 13 // 13 // 10 // 5
-#define D_PITCH          0.7 // 1.75 //3 // 3 // 522
+#define P_PITCH          7 // 5 // 7 // 6 // 5 // 13 // 13 // 10 // 5
+#define D_PITCH          0.07 // 40 // 0.7 // 1.75 //3 // 3 // 522
 #define I_PITCH          0.075 // 0.05
 #define MAX_PITCH_I      100 // 75 //50 
-#define P_ROLL           5 // 7 // 6 // 5 // 15 // 9 // 13
-#define D_ROLL           0.7 // 0.6 // 0.8 // 1.75 // 1.0 // 1.2 // 1.75
+#define P_ROLL           7 // 5 // 7 // 6 // 5 // 15 // 9 // 13
+#define D_ROLL           0.07 // 40 // 20 // 40 // 0.6 // 0.8 // 1.75 // 1.0 // 1.2 // 1.75
 #define I_ROLL           0.075
 #define MAX_ROLL_I       100
 #define P_YAW            3 // 2 // 1 //0.5 // 2 // 7 // 13
-#define P_YAW_VIVE       25 // 35 // 40 // 80 // 100 // 4 // 2
+#define P_YAW_VIVE       50 // 25 // 35 // 40 // 80 // 100 // 4 // 2
+#define P_Y_VIVE         0.03 // 0.01 // 0.03 // 0.05
+#define D_Y_VIVE         0.15 //0.008 // 0.001
+#define P_X_VIVE         0 // 0.01 // 0.03 // 0.05
+#define D_X_VIVE         0 // 0.008 // 0.01 // 0.001
 #define PITCH_MAX        8 // 10 // 8 // 11 // 9 // 10 // 15 // Degrees
 #define ROLL_MAX         8 // 10 // 8 // 11 // 9 // 15 // Degrees
 #define YAW_MAX          100 //5 // DPS
@@ -127,6 +131,7 @@ void init_motor(uint8_t channel);
 void set_PWM( uint8_t channel, float time_on_us);
 void pid_update();
 void safety_check_vive(Position local_p);
+void vive_control(Position local_p);
 
 //global variables
 int imu;
@@ -185,6 +190,12 @@ int sequence_num = 0;
 float vive_x_desired = 0.0;
 float vive_y_desired = 0.0;
 float vive_yaw_desired = 0.0;
+float vive_y_estimated = 0.0;
+float y_vive_prev = 0.0;
+float desired_pitch_vive = 0.0;
+float vive_x_estimated = 0.0;
+float x_vive_prev = 0.0;
+float desired_roll_vive = 0.0;
 
 // Flags
 int Flag_pause = 1;
@@ -252,7 +263,7 @@ int main (int argc, char *argv[])
       // printf("\n Gyro(xyz) = %10.5f %10.5f %10.5f     Pitch = %10.5f Roll = %10.5f", imu_data[0], imu_data[1], imu_data[2], pitch_angle, roll_angle);
 
       // printf(" Filtered pitch: %10.5f, Filtered roll: %10.5f\n", filtered_pitch, filtered_roll);
-      printf(" Vive x: %10.5f  y: %10.5f  z: %10.5f  yaw: %10.5f  version: %d \n", local_p.x, local_p.y, local_p.z, local_p.yaw, local_p.version);
+      printf(" Vive x: %10.5f  y: %10.5f  z: %10.5f  yaw: %10.5f  desired pitch: %10.5f desired roll: %10.5f\n", local_p.x - vive_x_desired, local_p.y - vive_y_desired, local_p.z, local_p.yaw - vive_yaw_desired, desired_pitch, desired_roll);
     //   printf(" Vive x_desired: %10.5f  y_desired: %10.5f  yaw_desired: %10.5f\n", vive_x_desired, vive_y_desired, vive_yaw_desired);
 
       // Save values to CSV
@@ -270,6 +281,7 @@ int main (int argc, char *argv[])
       if (Flag_pause == 0) // Pause motors
       {
         // Update motor speeds
+        vive_control(local_p);
         pid_update();
       }
 
@@ -508,6 +520,24 @@ void trap(int signal)
   run_program=0;
 }
 
+void vive_control(Position local_p)
+{
+/*
+
+*/
+    // Exponential filter to filter out vive noise
+    vive_y_estimated = vive_y_estimated*0.6 + local_p.y*0.4;
+    vive_x_estimated = vive_x_estimated*0.6 + local_p.x*0.4;
+
+    // P_Y_VIVE
+    if (hearbeat_prev_vive != local_p.version)
+    {
+      y_vive_prev = vive_y_estimated;
+      x_vive_prev = vive_x_estimated;
+    }
+}
+
+
 void safety_check_vive(Position local_p) // Vive
 {
 /*
@@ -637,10 +667,15 @@ void safety_check(Keyboard keyboard) // Joystick
 void pid_update()
 {
   // Calculate pitch error
+  desired_pitch_vive = (vive_y_desired - vive_y_estimated)*P_Y_VIVE - (vive_y_estimated - y_vive_prev)*D_Y_VIVE;
+//   desired_pitch = desired_pitch*0.5 - desired_pitch_vive*0.5; // Flip vive Y
   pitch_error = desired_pitch - filtered_pitch;
+//   pitch_error = desired_pitch*0.5 + desired_pitch_vive*0.5 - filtered_pitch;
   pitch_error_I += pitch_error*I_PITCH;
 
   // Calculate roll error
+  desired_roll_vive = (vive_x_desired - vive_x_estimated)*P_X_VIVE - (vive_x_estimated - x_vive_prev)*D_X_VIVE;
+//   desired_roll = desired_roll*0.5 - desired_roll_vive*0.5;
   roll_error = desired_roll - filtered_roll;
   roll_error_I += roll_error*I_ROLL;
 
