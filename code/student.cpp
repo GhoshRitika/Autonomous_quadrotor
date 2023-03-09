@@ -37,19 +37,19 @@
 #define LED0_OFF_L       0x8		
 #define LED0_OFF_H       0x9		
 #define LED_MULTIPLYER   4
-#define NEUTRAL_THRUST   1400 // 1350 // 1450 // 1500
+#define NEUTRAL_THRUST   1350 //1400 // 1350 // 1450 // 1500
 #define P_PITCH          7 // 5 // 7 // 6 // 5 // 13 // 13 // 10 // 5
-#define D_PITCH          0.07 // 40 // 0.7 // 1.75 //3 // 3 // 522
+#define D_PITCH          0.7 // 40 // 0.7 // 1.75 //3 // 3 // 522
 #define I_PITCH          0.075 // 0.05
 #define MAX_PITCH_I      100 // 75 //50 
 #define P_ROLL           7 // 5 // 7 // 6 // 5 // 15 // 9 // 13
-#define D_ROLL           0.07 // 40 // 20 // 40 // 0.6 // 0.8 // 1.75 // 1.0 // 1.2 // 1.75
+#define D_ROLL           0.7 // 40 // 20 // 40 // 0.6 // 0.8 // 1.75 // 1.0 // 1.2 // 1.75
 #define I_ROLL           0.075
 #define MAX_ROLL_I       100
 #define P_YAW            3 // 2 // 1 //0.5 // 2 // 7 // 13
-#define P_YAW_VIVE       50 // 25 // 35 // 40 // 80 // 100 // 4 // 2
-#define P_Y_VIVE         0.03 // 0.01 // 0.03 // 0.05
-#define D_Y_VIVE         0.15 //0.008 // 0.001
+#define P_YAW_VIVE       150 //100 // 0.05 // 5 // 25 // 50 // 25 // 35 // 40 // 80 // 100 // 4 // 2
+#define P_Y_VIVE         0 // 0.03 // 0.01 // 0.03 // 0.05
+#define D_Y_VIVE         0 // 0.15 //0.008 // 0.001
 #define P_X_VIVE         0 // 0.01 // 0.03 // 0.05
 #define D_X_VIVE         0 // 0.008 // 0.01 // 0.001
 #define PITCH_MAX        8 // 10 // 8 // 11 // 9 // 10 // 15 // Degrees
@@ -668,9 +668,9 @@ void pid_update()
 {
   // Calculate pitch error
   desired_pitch_vive = (vive_y_desired - vive_y_estimated)*P_Y_VIVE - (vive_y_estimated - y_vive_prev)*D_Y_VIVE;
-//   desired_pitch = desired_pitch*0.5 - desired_pitch_vive*0.5; // Flip vive Y
+  desired_pitch = desired_pitch*0.5 - desired_pitch_vive*0.5; // Flip vive Y
   pitch_error = desired_pitch - filtered_pitch;
-//   pitch_error = desired_pitch*0.5 + desired_pitch_vive*0.5 - filtered_pitch;
+  pitch_error = desired_pitch*0.5 + desired_pitch_vive*0.5 - filtered_pitch;
   pitch_error_I += pitch_error*I_PITCH;
 
   // Calculate roll error
@@ -680,7 +680,10 @@ void pid_update()
   roll_error_I += roll_error*I_ROLL;
 
   // Calculate yaw error
-  yaw_error_velocity = desired_yaw_velocity - imu_data[2];
+//   yaw_error_velocity = desired_yaw_velocity - imu_data[2]; // Joystick
+  desired_yaw_velocity = local_p.yaw*P_YAW_VIVE; //*58; 
+//   desired_yaw_velocity = 0.0;
+  yaw_error_velocity = desired_yaw_velocity - imu_data[2]; // Vive high
 
   // Limit pitch integral term
   if (pitch_error_I > MAX_PITCH_I)
@@ -702,15 +705,21 @@ void pid_update()
   }
 
   // PID - Controller for Pitch and Roll
-//   pwm_0 = desired_thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I + local_p.yaw*P_YAW_VIVE*58;
-//   pwm_1 = desired_thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I - local_p.yaw*P_YAW_VIVE*58;
-//   pwm_2 = desired_thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I + local_p.yaw*P_YAW_VIVE*58;
-//   pwm_3 = desired_thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I - local_p.yaw*P_YAW_VIVE*58;
 
-  pwm_0 = desired_thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I + yaw_error_velocity*P_YAW + local_p.yaw*P_YAW_VIVE*58;
-  pwm_1 = desired_thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I - yaw_error_velocity*P_YAW - local_p.yaw*P_YAW_VIVE*58;
-  pwm_2 = desired_thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I + yaw_error_velocity*P_YAW + local_p.yaw*P_YAW_VIVE*58;
-  pwm_3 = desired_thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I - yaw_error_velocity*P_YAW - local_p.yaw*P_YAW_VIVE*58;
+//   pwm_0 = desired_thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I + yaw_error_velocity*P_YAW;
+//   pwm_1 = desired_thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I - yaw_error_velocity*P_YAW;
+//   pwm_2 = desired_thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I + yaw_error_velocity*P_YAW;
+//   pwm_3 = desired_thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I - yaw_error_velocity*P_YAW;
+
+  pwm_0 = desired_thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I + yaw_error_velocity*P_YAW;
+  pwm_1 = desired_thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I - yaw_error_velocity*P_YAW;
+  pwm_2 = desired_thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I + yaw_error_velocity*P_YAW;
+  pwm_3 = desired_thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I - yaw_error_velocity*P_YAW;
+
+//   pwm_0 = desired_thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I + yaw_error_velocity*P_YAW + local_p.yaw*P_YAW_VIVE*58;
+//   pwm_1 = desired_thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I + roll_error*P_ROLL - imu_data[1]*D_ROLL + roll_error_I - yaw_error_velocity*P_YAW - local_p.yaw*P_YAW_VIVE*58;
+//   pwm_2 = desired_thrust + pitch_error*P_PITCH - imu_data[0]*D_PITCH + pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I + yaw_error_velocity*P_YAW + local_p.yaw*P_YAW_VIVE*58;
+//   pwm_3 = desired_thrust - pitch_error*P_PITCH + imu_data[0]*D_PITCH - pitch_error_I - roll_error*P_ROLL + imu_data[1]*D_ROLL - roll_error_I - yaw_error_velocity*P_YAW - local_p.yaw*P_YAW_VIVE*58;
 
   // Limit PWM signal at 1000 - 1300s
   if (pwm_0 > PWM_MAX)
