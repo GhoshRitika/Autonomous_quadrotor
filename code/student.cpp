@@ -25,7 +25,7 @@
 #define PWR_MGMT_1       0x6B  // Device defaults to the SLEEP mode
 #define PWR_MGMT_2       0x6C
 #define A                0.02  //Complemetary filter ratio // TODO decrease to 0.01
-#define MAX_GYRO_RATE    300   // deg/s
+#define MAX_GYRO_RATE    1000 // 300   // deg/s
 #define MAX_ROLL_ANGLE   45.0  // deg
 #define MAX_PITCH_ANGLE  45.0  // deg
 #define PWM_MAX          1800// 1600// 1900
@@ -37,21 +37,21 @@
 #define LED0_OFF_L       0x8		
 #define LED0_OFF_H       0x9		
 #define LED_MULTIPLYER   4
-#define NEUTRAL_THRUST   1350 //1400 // 1350 // 1450 // 1500
-#define P_PITCH          7 // 5 // 7 // 6 // 5 // 13 // 13 // 10 // 5
-#define D_PITCH          0.7 // 40 // 0.7 // 1.75 //3 // 3 // 522
+#define NEUTRAL_THRUST   1450 // 1350 // 1450 // 1500
+#define P_PITCH          9 // 7 // 5 // 7 // 6 // 5 // 13 // 13 // 10 // 5
+#define D_PITCH          0.8 // 0.7 // 40 // 0.7 // 1.75 //3 // 3 // 522
 #define I_PITCH          0.075 // 0.05
-#define MAX_PITCH_I      100 // 75 //50 
-#define P_ROLL           7 // 5 // 7 // 6 // 5 // 15 // 9 // 13
-#define D_ROLL           0.7 // 40 // 20 // 40 // 0.6 // 0.8 // 1.75 // 1.0 // 1.2 // 1.75
+#define MAX_PITCH_I      100 // 75 //50 ss
+#define P_ROLL           7.8 // 7.5 // 7.0 // 10 // 9 // 7 // 5 // 7 // 6 // 5 // 15 // 9 // 13
+#define D_ROLL           0.425 // (0.8) // 0.45 // 0.4 // 0.3 // 1.0 // 1.0 // 0.8 // 2.5 // 0.7 // 0.9// 1.2 // 0.7 // 40 // 20 // 40 // 0.6 // 0.8 // 1.75 // 1.0 // 1.2 // 1.75
 #define I_ROLL           0.075
 #define MAX_ROLL_I       100
 #define P_YAW            3 // 2 // 1 //0.5 // 2 // 7 // 13
 #define P_YAW_VIVE       150 //100 // 0.05 // 5 // 25 // 50 // 25 // 35 // 40 // 80 // 100 // 4 // 2
-#define P_Y_VIVE         0 // 0.03 // 0.01 // 0.03 // 0.05
-#define D_Y_VIVE         0 // 0.15 //0.008 // 0.001
-#define P_X_VIVE         0 // 0.01 // 0.03 // 0.05
-#define D_X_VIVE         0 // 0.008 // 0.01 // 0.001
+#define P_Y_VIVE         0 // 0.05 // 0.03 // 0.01 // 0.03 // 0.05s
+#define D_Y_VIVE         0 // 0.08 // 0.15 //0.008 // 0.001
+#define P_X_VIVE         0 // 0.05 // 0.08 // 0.2 // 0.01 //0.03 // 0.05
+#define D_X_VIVE         0// 0.08 // 0.008 // 0.01 // 0.001
 #define PITCH_MAX        8 // 10 // 8 // 11 // 9 // 10 // 15 // Degrees
 #define ROLL_MAX         8 // 10 // 8 // 11 // 9 // 15 // Degrees
 #define YAW_MAX          100 //5 // DPS
@@ -196,7 +196,9 @@ float desired_pitch_vive = 0.0;
 float vive_x_estimated = 0.0;
 float x_vive_prev = 0.0;
 float desired_roll_vive = 0.0;
-
+double dt_vive_ = 0.0;
+double vive_D_error_y = 0.0;
+double vive_D_error_x = 0.0;
 // Flags
 int Flag_pause = 1;
 int Flag_set_vive_desired = 1;
@@ -241,6 +243,7 @@ int main (int argc, char *argv[])
     // float temp_pitch = 0.0;
     // float temp_roll = 0.0;
     // file_p = fopen("W5M5_Zero_Yaw_Velocity.csv", "w+");
+    file_p = fopen("desired_vs_actual_angles.csv", "w+");
 
     while(run_program==1)
     {
@@ -268,6 +271,8 @@ int main (int argc, char *argv[])
 
       // Save values to CSV
       //   fprintf(file_p, "%d, %d, %d, %d, %f,\n", pwm_0, pwm_1, pwm_2, pwm_3, imu_data[2]*15); // yaw P controller
+      fprintf(file_p, "%10.5f, %10.5f, %10.5f, %10.5f,\n", desired_pitch, filtered_pitch, desired_roll, filtered_roll); // Desired vs actual angles
+
 
       // to refresh values from shared memory first
       Keyboard keyboard=*shared_memory;
@@ -288,7 +293,7 @@ int main (int argc, char *argv[])
     }
 
     // Save values to CSV
-    // fclose(file_p);
+    fclose(file_p);
 
     // Kill all motors
     printf("\n Killing Motors! \n"); 
@@ -525,6 +530,23 @@ void vive_control(Position local_p)
 /*
 
 */
+
+    //get current time in nanoseconds
+    timespec_get(&t_heartbeat_vive,TIME_UTC);
+    time_curr_heartbeat_vive = t_heartbeat_vive.tv_nsec;
+    //compute time since last execution
+    double passed_time_vive = time_curr_heartbeat_vive-time_prev_heartbeat_vive;
+
+    //check for rollover
+    if(passed_time_vive<=0.0)
+    {
+    passed_time_vive+=1000000000.0;
+    }
+
+    //convert to seconds
+    passed_time_vive=passed_time_vive/1000000000.0;
+    dt_vive_ = passed_time_vive;
+
     // Exponential filter to filter out vive noise
     vive_y_estimated = vive_y_estimated*0.6 + local_p.y*0.4;
     vive_x_estimated = vive_x_estimated*0.6 + local_p.x*0.4;
@@ -534,6 +556,9 @@ void vive_control(Position local_p)
     {
       y_vive_prev = vive_y_estimated;
       x_vive_prev = vive_x_estimated;
+      time_prev_heartbeat_vive = time_curr_heartbeat_vive;
+      vive_D_error_y = (vive_y_estimated - y_vive_prev)*(1/dt_vive_);
+      vive_D_error_x = (vive_x_estimated - x_vive_prev)*(1/dt_vive_);
     }
 }
 
@@ -667,15 +692,15 @@ void safety_check(Keyboard keyboard) // Joystick
 void pid_update()
 {
   // Calculate pitch error
-  desired_pitch_vive = (vive_y_desired - vive_y_estimated)*P_Y_VIVE - (vive_y_estimated - y_vive_prev)*D_Y_VIVE;
-  desired_pitch = desired_pitch*0.5 - desired_pitch_vive*0.5; // Flip vive Y
+  desired_pitch_vive = (vive_y_desired - vive_y_estimated)*P_Y_VIVE - vive_D_error_y*D_Y_VIVE;
+  desired_pitch = desired_pitch*1.0 - desired_pitch_vive*0.5; // Flip vive Y
   pitch_error = desired_pitch - filtered_pitch;
-  pitch_error = desired_pitch*0.5 + desired_pitch_vive*0.5 - filtered_pitch;
+//   pitch_error = desired_pitch*0.5 + desired_pitch_vive*0.5 - filtered_pitch;
   pitch_error_I += pitch_error*I_PITCH;
 
   // Calculate roll error
-  desired_roll_vive = (vive_x_desired - vive_x_estimated)*P_X_VIVE - (vive_x_estimated - x_vive_prev)*D_X_VIVE;
-//   desired_roll = desired_roll*0.5 - desired_roll_vive*0.5;
+  desired_roll_vive = (vive_x_desired - vive_x_estimated)*P_X_VIVE - vive_D_error_x*D_X_VIVE;
+  desired_roll = desired_roll*1.0 + desired_roll_vive*0.5; //  CHANGED SIGN 
   roll_error = desired_roll - filtered_roll;
   roll_error_I += roll_error*I_ROLL;
 
