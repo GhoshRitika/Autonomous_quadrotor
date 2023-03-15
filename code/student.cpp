@@ -38,23 +38,23 @@
 #define LED0_OFF_H       0x9		
 #define LED_MULTIPLYER   4
 #define NEUTRAL_THRUST   1450 // 1350 // 1450 // 1500
-#define P_PITCH          9 // 7 // 5 // 7 // 6 // 5 // 13 // 13 // 10 // 5
-#define D_PITCH          0.8 // 0.7 // 40 // 0.7 // 1.75 //3 // 3 // 522
-#define I_PITCH          0.075 // 0.05
+#define P_PITCH          5 // prev 9 // 7 // 5 // 7 // 6 // 5 // 13 // 13 // 10 // 5
+#define D_PITCH          0.8 // prev 0.8 // 0.7 // 40 // 0.7 // 1.75 //3 // 3 // 522
+#define I_PITCH          0.4 // prev 0.075 // 0.05
 #define MAX_PITCH_I      100 // 75 //50 ss
-#define P_ROLL           7.8 // 7.5 // 7.0 // 10 // 9 // 7 // 5 // 7 // 6 // 5 // 15 // 9 // 13
-#define D_ROLL           0.425 // (0.8) // 0.45 // 0.4 // 0.3 // 1.0 // 1.0 // 0.8 // 2.5 // 0.7 // 0.9// 1.2 // 0.7 // 40 // 20 // 40 // 0.6 // 0.8 // 1.75 // 1.0 // 1.2 // 1.75
-#define I_ROLL           0.075
+#define P_ROLL           5 // prev 7.8 // 7.5 // 7.0 // 10 // 9 // 7 // 5 // 7 // 6 // 5 // 15 // 9 // 13
+#define D_ROLL           0.8 // prev 0.425 // (0.8) // 0.45 // 0.4 // 0.3 // 1.0 // 1.0 // 0.8 // 2.5 // 0.7 // 0.9// 1.2 // 0.7 // 40 // 20 // 40 // 0.6 // 0.8 // 1.75 // 1.0 // 1.2 // 1.75
+#define I_ROLL           0.4 // prev 0.075
 #define MAX_ROLL_I       100
-#define P_YAW            3 // 2 // 1 //0.5 // 2 // 7 // 13
-#define P_YAW_VIVE       150 //100 // 0.05 // 5 // 25 // 50 // 25 // 35 // 40 // 80 // 100 // 4 // 2
-#define P_Y_VIVE         0 // 0.05 // 0.03 // 0.01 // 0.03 // 0.05s
-#define D_Y_VIVE         0 // 0.08 // 0.15 //0.008 // 0.001
-#define P_X_VIVE         0 // 0.05 // 0.08 // 0.2 // 0.01 //0.03 // 0.05
-#define D_X_VIVE         0// 0.08 // 0.008 // 0.01 // 0.001
-#define PITCH_MAX        8 // 10 // 8 // 11 // 9 // 10 // 15 // Degrees
-#define ROLL_MAX         8 // 10 // 8 // 11 // 9 // 15 // Degrees
-#define YAW_MAX          100 //5 // DPS
+#define P_YAW            3 // prev 3 // 2 // 1 //0.5 // 2 // 7 // 13
+#define P_YAW_VIVE       600 // prev 150 //100 // 0.05 // 5 // 25 // 50 // 25 // 35 // 40 // 80 // 100 // 4 // 2
+#define P_Y_VIVE         0.08 // 0.04 // prev 0 // 0.05 // 0.03 // 0.01 // 0.03 // 0.05s
+#define D_Y_VIVE         0.06 // 0.04// 0.03 // prev 0 // 0.08 // 0.15 //0.008 // 0.001
+#define P_X_VIVE         0.08 // 0.04 // prev 0 // 0.05 // 0.08 // 0.2 // 0.01 //0.03 // 0.05
+#define D_X_VIVE         0.06 // 0.04 // 0.03 // prev 0// 0.08 // 0.008 // 0.01 // 0.001
+#define PITCH_MAX        8 // prev 8 // 10 // 8 // 11 // 9 // 10 // 15 // Degrees
+#define ROLL_MAX         8 // prev 8 // 10 // 8 // 11 // 9 // 15 // Degrees
+#define YAW_MAX          100 // 5 // DPS
 #define JOY_NEUTRAL      128
 #define JOY_HIGH         240
 #define JOY_LOW          16
@@ -549,7 +549,7 @@ void vive_control(Position local_p)
 
     // Exponential filter to filter out vive noise
     vive_y_estimated = vive_y_estimated*0.6 + local_p.y*0.4;
-    vive_x_estimated = vive_x_estimated*0.6 + local_p.x*0.4;
+    vive_x_estimated = vive_x_estimated*0.8 + local_p.x*0.2;
 
     // P_Y_VIVE
     if (hearbeat_prev_vive != local_p.version)
@@ -693,14 +693,30 @@ void pid_update()
 {
   // Calculate pitch error
   desired_pitch_vive = (vive_y_desired - vive_y_estimated)*P_Y_VIVE - vive_D_error_y*D_Y_VIVE;
-  desired_pitch = desired_pitch*1.0 - desired_pitch_vive*0.5; // Flip vive Y
+  desired_pitch = desired_pitch*0.5 - desired_pitch_vive*0.5; // Flip vive Y
+  if (desired_pitch > 12)
+  {
+    desired_pitch = 12.0;
+  }
+  else if (desired_pitch < -12)
+  {
+    desired_pitch = -12.0;
+  }
   pitch_error = desired_pitch - filtered_pitch;
 //   pitch_error = desired_pitch*0.5 + desired_pitch_vive*0.5 - filtered_pitch;
   pitch_error_I += pitch_error*I_PITCH;
 
   // Calculate roll error
   desired_roll_vive = (vive_x_desired - vive_x_estimated)*P_X_VIVE - vive_D_error_x*D_X_VIVE;
-  desired_roll = desired_roll*1.0 + desired_roll_vive*0.5; //  CHANGED SIGN 
+  desired_roll = desired_roll*0.5 - desired_roll_vive*0.5; //  CHANGED SIGN
+  if (desired_roll > 12)
+  {
+    desired_roll = 12.0;
+  }
+  else if (desired_roll < -12)
+  {
+    desired_roll = -12.0;
+  }
   roll_error = desired_roll - filtered_roll;
   roll_error_I += roll_error*I_ROLL;
 
